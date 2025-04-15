@@ -102,15 +102,15 @@ const options = {
             gridSize: Math.round(16 * wordCloudContainer.offsetWidth / 1024),
             weightFactor: function (size) {
                 // 保持原來的權重因子，或根據需要調整
-                return Math.pow(size, 1.5) * (wordCloudContainer.offsetWidth / 1024) * 1.5;
+                return Math.pow(size, 1.2) * (wordCloudContainer.offsetWidth / 1024) * 1;
             },
             fontFamily: 'Arial, sans-serif',
             color: 'random-dark',
             backgroundColor: '#ffffff',
-            rotateRatio: 0.5, // 保留旋轉比例以增加動態感
+            rotateRatio: 0.4, // 保留旋轉比例以增加動態感
             minSize: 5,
             // ***** 新增的選項 *****
-            //shuffle: true // <--- 新增：隨機打亂繪製順序，增強生成動畫的隨機感
+            shuffle: true // <--- 新增：隨機打亂繪製順序，增強生成動畫的隨機感
             // ***** 您也可以嘗試其他選項 *****
             shape: 'circle', // 例如：設定形狀為圓形
             ellipticity: 0.65, // 橢圓度 (如果形狀不是 'square')
