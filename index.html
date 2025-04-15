@@ -9,7 +9,7 @@
         #wordCloudContainer {
             width: 100%;
             height: 600px; /* 可以調整高度 */
-            border: 5px solid #ccc;
+            border: 1px solid #ccc;
             position: relative;
             overflow: hidden;
             background-color: #e0f2f7; /* 淺藍色 */
@@ -18,6 +18,7 @@
             position: absolute;
             font-size: 16px;
             cursor: default;
+            font-weight: bold; /* 文字加粗 */
         }
     </style>
 </head>
@@ -96,6 +97,7 @@
                 wordElement.textContent = wordObj.text;
                 wordElement.style.fontSize = `${12 + Math.log2(wordObj.count) * 5}px`; // 根據詞頻調整大小 (調整乘數以改變大小比例)
                 wordElement.style.color = getRandomColor(); // 設定隨機顏色
+                wordElement.style.fontWeight = 'bold'; // 設定文字為粗體
 
                 // 初始位置
                 wordElement.style.left = `${Math.random() * (containerWidth - wordElement.offsetWidth)}px`;
