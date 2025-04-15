@@ -1,18 +1,22 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>國衛院小館機AI文字雲產生器</title>
+    <title>動態文字雲產生器</title>
     <style>
         body {
             font-family: sans-serif;
         }
         #wordCloudContainer {
-            width: 100%;
-            height: 600px; /* 可以調整高度 */
-            border: 5px solid #ccc;
+            width: 100%; /* 或 80%，根據您的需求 */
+            height: 400px; /* 或 90%，根據您的需求 */
+            border: 1px solid #ccc;
             position: relative;
             overflow: hidden;
-            background-color: #e0f2f7; /* 淺藍色 */
+            background-color: #fff; /* 白色 */
+            border-radius: 50%; /* 使方框變為橢圓形 */
+            display: flex; /* 確保內容居中，視覺效果更佳 */
+            justify-content: center;
+            align-items: center;
         }
         .shattered-word {
             position: absolute;
@@ -139,10 +143,10 @@
                     y += speedY;
 
                     // 邊界碰撞檢測
-                    if (x < 500 || x > containerWidth - shatteredWordContainer.offsetWidth) {
+                    if (x < 0 || x > containerWidth - shatteredWordContainer.offsetWidth) {
                         speedX *= -1;
                     }
-                    if (y < 500 || y > containerHeight - shatteredWordContainer.offsetHeight) {
+                    if (y < 0 || y > containerHeight - shatteredWordContainer.offsetHeight) {
                         speedY *= -1;
                     }
 
