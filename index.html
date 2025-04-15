@@ -121,11 +121,11 @@
 
     
                     
-                    if (x < 0 || x > containerWidth - wordElement.offsetWidth) {
-                        speedX *= -10;
+                    if (x < 10 || x > containerWidth - wordElement.offsetWidth) {
+                        speedX *= -1;
                     }
-                    if (y < 0 || y > containerHeight - wordElement.offsetHeight) {
-                        speedY *= -10;
+                    if (y < 100 || y > containerHeight - wordElement.offsetHeight) {
+                        speedY *= -1;
                     }
 
                     wordElement.style.left = `${x}px`;
