@@ -97,21 +97,24 @@ document.addEventListener('DOMContentLoaded', () => {
                 wordCloudContainer.classList.add('has-cloud'); // 標記已有雲圖 (用於CSS隱藏提示)
 
                 // 4. 設定 WordCloud2 選項並繪製
-                const options = {
-                    list: listData,
-                    gridSize: Math.round(16 * wordCloudContainer.offsetWidth / 1024), // 格子大小，可調整
-                    weightFactor: function (size) {
-                        // 調整權重因子，讓詞語大小差異更明顯或更平緩
-                        // 可以使用 Math.pow, Math.log 等
-                        return Math.pow(size, 1.5) * (wordCloudContainer.offsetWidth / 1024) * 2;
-                    },
-                    fontFamily: 'Arial, sans-serif', // 字體
-                    color: 'random-dark', // 顏色方案
-                    backgroundColor: '#ffffff', // 背景色
-                    rotateRatio: 0.5, // 旋轉比例
-                    minSize: 5 // 最小字體大小
-                    // 更多選項請參考 WordCloud2.js 文件
-                };
+const options = {
+            list: listData,
+            gridSize: Math.round(16 * wordCloudContainer.offsetWidth / 1024),
+            weightFactor: function (size) {
+                // 保持原來的權重因子，或根據需要調整
+                return Math.pow(size, 1.5) * (wordCloudContainer.offsetWidth / 1024) * 2;
+            },
+            fontFamily: 'Arial, sans-serif',
+            color: 'random-dark',
+            backgroundColor: '#ffffff',
+            rotateRatio: 0.5, // 保留旋轉比例以增加動態感
+            minSize: 5,
+            // ***** 新增的選項 *****
+            shuffle: true // <--- 新增：隨機打亂繪製順序，增強生成動畫的隨機感
+            // ***** 您也可以嘗試其他選項 *****
+            // shape: 'circle', // 例如：設定形狀為圓形
+            // ellipticity: 0.65, // 橢圓度 (如果形狀不是 'square')
+        };
 
                 WordCloud(wordCloudContainer, options);
 
