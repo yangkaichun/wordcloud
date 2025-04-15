@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>動態文字雲產生器</title>
+    <style>
+        body {
+            font-family: sans-serif;
+        }
+        #wordCloudContainer {
+            width: 100%; /* 或 80%，根據您的需求 */
+            height: 650px; /* 或 90%，根據您的需求 */
+            border: 0px solid #ccc;
+            position: relative;
+            overflow: hidden;
+            background-color: #fff; /* 白色 */
+            border-radius: 50%; /* 使方框變為橢圓形 */
+            display: flex; /* 確保內容居中，視覺效果更佳 */
+            justify-content: center;
+            align-items: center;
+        }
+        .shattered-letter {
+            display: inline-block;
+            font-size: inherit;
+            font-weight: inherit;
+            color: inherit;
+            position: absolute; /* 修改為 absolute 以便精確定位字母 */
+        }
+    </style>
+</head>
+<body>
+    <input type="file" id="excelFile" accept=".xlsx, .xls">
+    <button id="generateButton" disabled>產生文字雲</button>
+    <div id="wordCloudContainer"></div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jieba.js/0.2.2/jieba.min.js"></script>
+    <script>
+        const fileInput = document.getElementById('excelFile');
+        const generateButton = document.getElementById('generateButton');
+        const wordCloudContainer = document.getElementById('wordCloudContainer');
+        let excelData = [];
+
+        fileInput.addEventListener('change', (event) => {
+            const file = event.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    const sheetName = workbook.SheetNames[0];
+                    const worksheet = workbook.Sheets[sheetName];
+                    const range = XLSX.utils.decode_range(worksheet['!ref']);
+                    excelData = [];
+                    for (let rowNum = range.s.r; rowNum <= range.e.r; rowNum++) {
+                        const cellAddress = XLSX.utils.encode_cell({ r: rowNum, c: 0 });
+                        const cell = worksheet[cellAddress];
+                        if (cell && cell.v) {
+                            excelData.push(cell.v);
+                        }
+                    }
+                    if (excelData.length > 0) {
+                        generateButton.disabled = false;
+                    } else {
+                        generateButton.disabled = true;
+                        alert("Excel檔案的第一欄沒有內容。");
+                    }
+                };
+                reader.readAsArrayBuffer(file);
+            } else {
+                generateButton.disabled = true;
+                excelData = [];
+            }
+        });
+
+        generateButton.addEventListener('click', () => {
+            wordCloudContainer.innerHTML = ''; // 清空之前的文字雲
+            const text = excelData.join(' ');
+            const words = {};
+            const jiebaResult = jieba.cut(text, true); // 使用精確模式斷詞
+
+            for (const word of jiebaResult) {
+                if (word.trim().length > 1) { // 排除單字元的詞
+                    words[word] = (words[word] || 0) + 1;
+                }
+            }
+
+            const wordList = Object.entries(words).map(([text, count]) => ({ text, count }));
+
+            const containerWidth = wordCloudContainer.offsetWidth;
+            const containerHeight = wordCloudContainer.offsetHeight;
+
+            function getRandomColor() {
+                const letters = '0123456789ABCDEF';
+                let color = '#';
+                for (let i = 0; i < 6; i++) {
+                    color += letters[Math.floor(Math.random() * 16)];
+                }
+                return color;
+            }
+
+            function createShatteredWord(wordObj) {
+                const shatteredWordContainer = document.createElement('div');
+                shatteredWordContainer.style.fontSize = `${12 + Math.log2(wordObj.count) * 5}px`;
+                shatteredWordContainer.style.color = getRandomColor();
+                shatteredWordContainer.style.fontWeight = 'bold';
+                shatteredWordContainer.style.fontFamily = "Microsoft YaHei", sans-serif; // 設定統一字形
+                shatteredWordContainer.style.position = 'absolute'; // 確保容器是絕對定位
+
+                const wordText = wordObj.text;
+                const letters = [];
+                for (let i = 0; i < wordText.length; i++) {
+                    const letterSpan = document.createElement('span');
+                    letterSpan.classList.add('shattered-letter');
+                    letterSpan.textContent = wordText[i];
+
+                    // 隨機旋轉角度和微小位移 (只在創建時設定)
+                    const rotateAngle = (Math.random() - 0.5) * 20; // -10 到 10 度
+                    const translateX = (Math.random() - 0.5) * 5; // -2.5 到 2.5 像素
+                    const translateY = (Math.random() - 0.5) * 5; // -2.5 到 2.5 像素
+
+                    letterSpan.style.transform = `translate(${translateX}px, ${translateY}px) rotate(${rotateAngle}deg)`;
+                    shatteredWordContainer.appendChild(letterSpan);
+                    letters.push(letterSpan);
+                }
+
+                // 初始位置
+                shatteredWordContainer.style.left = `${Math.random() * (containerWidth - shatteredWordContainer.offsetWidth)}px`;
+                shatteredWordContainer.style.top = `${Math.random() * (containerHeight - shatteredWordContainer.offsetHeight)}px`;
+
+                let speedX = (Math.random() - 0.5) * 2; // 隨機水平速度
+                let speedY = (Math.random() - 0.5) * 2; // 隨機垂直速度
+
+                function resetWord() {
+                    shatteredWordContainer.style.opacity = 0; // 消失
+                    setTimeout(() => {
+                        shatteredWordContainer.style.left = `${Math.random() * (containerWidth - shatteredWordContainer.offsetWidth)}px`;
+                        shatteredWordContainer.style.top = `${Math.random() * (containerHeight - shatteredWordContainer.offsetHeight)}px`;
+                        speedX = (Math.random() - 0.5) * 2; // 重新賦予隨機速度
+                        speedY = (Math.random() - 0.5) * 2;
+                        shatteredWordContainer.style.opacity = 1; // 出現
+                    }, 200); // 延遲 200 毫秒後重新出現
+                }
+
+                function animateWord() {
+                    let x = parseFloat(shatteredWordContainer.style.left);
+                    let y = parseFloat(shatteredWordContainer.style.top);
+
+                    x += speedX;
+                    y += speedY;
+
+                    // 邊界碰撞檢測
+                    if (x < 0 || x > containerWidth - shatteredWordContainer.offsetWidth) {
+                        resetWord();
+                        return;
+                    }
+                    if (y < 0 || y > containerHeight - shatteredWordContainer.offsetHeight) {
+                        resetWord();
+                        return;
+                    }
+
+                    shatteredWordContainer.style.left = `${x}px`;
+                    shatteredWordContainer.style.top = `${y}px`;
+
+                    requestAnimationFrame(animateWord);
+                }
+
+                animateWord();
+                return shatteredWordContainer;
+            }
+
+            wordList.forEach(wordObj => {
+                const shatteredWord = createShatteredWord(wordObj);
+                wordCloudContainer.appendChild(shatteredWord);
+            });
+        });
+    </script>
+</body>
+</html>
