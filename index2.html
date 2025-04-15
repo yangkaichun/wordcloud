@@ -1,178 +1,743 @@
 <!DOCTYPE html>
-<html>
+<html lang="zh-TW">
 <head>
-    <title>動態文字雲產生器</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>動態文字雲生成器</title>
+    <!-- Tailwind CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <!-- 引入字體 -->
+    <link href="https://cdn.jsdelivr.net/npm/@fontsource/noto-sans-tc@4.5.12/index.css" rel="stylesheet">
+    <!-- 引入XLSX.js處理Excel檔案 -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <!-- 引入jieba斷詞庫 -->
+    <script src="https://cdn.jsdelivr.net/npm/js-jieba@0.1.0/dist/jieba.js"></script>
     <style>
-        body {
-            font-family: sans-serif;
+        :root {
+            --primary-color: #00a8ff;
+            --secondary-color: #9c27b0;
+            --background-color: #0c0e1a;
+            --accent-color: #00e676;
+            --text-color: #e0e0e0;
         }
-        #wordCloudContainer {
-            width: 100%; /* 或 80%，根據您的需求 */
-            height: 400px; /* 或 90%，根據您的需求 */
-            border: 1px solid #ccc;
+
+        body {
+            font-family: 'Noto Sans TC', sans-serif;
+            background-color: var(--background-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 0;
+            min-height: 100vh;
+            overflow: hidden;
+        }
+
+        .container {
+            max-width: 100%;
+            margin: 0 auto;
+            padding: 1rem;
+        }
+
+        .tech-bg {
+            background: linear-gradient(135deg, #0c0e1a 0%, #1a1f35 100%);
+            position: relative;
+        }
+
+        .tech-bg::before {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: 
+                radial-gradient(circle at 10% 20%, rgba(0, 168, 255, 0.05) 0%, transparent 20%),
+                radial-gradient(circle at 90% 80%, rgba(156, 39, 176, 0.05) 0%, transparent 20%),
+                linear-gradient(90deg, transparent 0%, rgba(0, 230, 118, 0.03) 50%, transparent 100%);
+            z-index: 0;
+        }
+
+        .grid-bg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image: 
+                linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+            background-size: 50px 50px;
+            z-index: -1;
+        }
+
+        .btn-tech {
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 0.5rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
             position: relative;
             overflow: hidden;
-            background-color: #fff; /* 白色 */
-            border-radius: 50%; /* 使方框變為橢圓形 */
-            display: flex; /* 確保內容居中，視覺效果更佳 */
-            justify-content: center;
-            align-items: center;
+            box-shadow: 0 4px 20px rgba(0, 168, 255, 0.3);
+            z-index: 1;
         }
-        .shattered-letter {
-            display: inline-block;
-            font-size: inherit;
-            font-weight: inherit;
-            color: inherit;
-            position: absolute; /* 修改為 absolute 以便精確定位字母 */
+
+        .btn-tech:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 25px rgba(0, 168, 255, 0.4);
+        }
+
+        .btn-tech:active {
+            transform: translateY(0);
+        }
+
+        .btn-tech::after {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, var(--secondary-color), var(--primary-color));
+            opacity: 0;
+            z-index: -1;
+            transition: opacity 0.3s ease;
+        }
+
+        .btn-tech:hover::after {
+            opacity: 1;
+        }
+
+        .word-cloud-container {
+            position: relative;
+            width: 100%;
+            height: calc(90vh - 120px);
+            margin-top: 1rem;
+            border-radius: 50% / 50%;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            overflow: hidden;
+            box-shadow: 0 0 30px rgba(0, 168, 255, 0.1), inset 0 0 30px rgba(156, 39, 176, 0.1);
+        }
+
+        .glow {
+            position: absolute;
+            width: 150px;
+            height: 150px;
+            background: radial-gradient(circle, rgba(0, 168, 255, 0.2) 0%, transparent 70%);
+            border-radius: 50%;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .word {
+            position: absolute;
+            font-weight: 500;
+            white-space: nowrap;
+            user-select: none;
+            z-index: 2;
+            text-shadow: 0 0 15px currentColor;
+            transform-origin: center;
+            will-change: transform, left, top;
+        }
+
+        .loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 5px solid rgba(255, 255, 255, 0.1);
+            border-top-color: var(--primary-color);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        .status-bar {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            background: rgba(12, 14, 26, 0.8);
+            backdrop-filter: blur(10px);
+            padding: 0.5rem 1rem;
+            display: flex;
+            justify-content: space-between;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            z-index: 10;
+        }
+
+        .file-info {
+            font-size: 0.875rem;
+            color: var(--text-color);
+        }
+
+        .file-info span {
+            color: var(--primary-color);
+            font-weight: 500;
+        }
+
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background-color: var(--accent-color);
+        }
+
+        .pulse {
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse {
+            0% {
+                transform: scale(0.8);
+                opacity: 0.7;
+            }
+            50% {
+                transform: scale(1.2);
+                opacity: 1;
+            }
+            100% {
+                transform: scale(0.8);
+                opacity: 0.7;
+            }
+        }
+
+        .tooltip {
+            position: absolute;
+            background: rgba(12, 14, 26, 0.9);
+            color: var(--text-color);
+            padding: 0.5rem 1rem;
+            border-radius: 0.25rem;
+            font-size: 0.875rem;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.2s ease;
+            z-index: 100;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+        }
+
+        .tooltip-visible {
+            opacity: 1;
         }
     </style>
 </head>
 <body>
-    <button id="generateButton">產生文字雲</button>
-    <div id="wordCloudContainer"></div>
+    <div class="tech-bg min-h-screen relative">
+        <div class="grid-bg"></div>
+        <div class="container relative z-10">
+            <header class="py-6">
+                <h1 class="text-3xl font-bold text-center mb-2" style="color: var(--primary-color);">
+                    動態文字雲生成器
+                </h1>
+                <p class="text-center text-gray-400 mb-6">
+                    上傳Excel檔案並生成互動式動態文字雲
+                </p>
+                <div class="flex flex-wrap justify-center gap-4">
+                    <label for="file-input" class="btn-tech flex items-center">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                        </svg>
+                        選擇Excel檔案
+                    </label>
+                    <input type="file" id="file-input" accept=".xlsx, .xls" style="display: none;" />
+                    
+                    <button id="generate-btn" class="btn-tech flex items-center">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                        </svg>
+                        生成文字雲
+                    </button>
+                </div>
+            </header>
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+            <main>
+                <div id="word-cloud-container" class="word-cloud-container">
+                    <div id="loading" class="loading" style="display: none;">
+                        <div class="spinner"></div>
+                        <p>正在處理資料...</p>
+                    </div>
+                    <div class="glow" id="glow"></div>
+                </div>
+            </main>
+        </div>
+
+        <div class="status-bar">
+            <div class="file-info">
+                目前檔案: <span id="current-file">demo.xlsx</span>
+            </div>
+            <div class="status-indicator">
+                <div class="status-dot pulse"></div>
+                <span id="status-text">準備就緒</span>
+            </div>
+        </div>
+
+        <div id="tooltip" class="tooltip"></div>
+    </div>
+
     <script>
-        const generateButton = document.getElementById('generateButton');
-        const wordCloudContainer = document.getElementById('wordCloudContainer');
-        let excelData = [];
+        // 全域變數
+        let words = [];
+        let wordElements = [];
+        let animationFrameId = null;
+        let currentFile = 'demo.xlsx';
+        let isProcessing = false;
+        let tooltipTimeout = null;
 
-        window.onload = () => {
-            loadDefaultExcelFile('demo.xlsx');
-        };
+        // DOM元素
+        const fileInput = document.getElementById('file-input');
+        const generateBtn = document.getElementById('generate-btn');
+        const wordCloudContainer = document.getElementById('word-cloud-container');
+        const loadingEl = document.getElementById('loading');
+        const currentFileEl = document.getElementById('current-file');
+        const statusTextEl = document.getElementById('status-text');
+        const tooltipEl = document.getElementById('tooltip');
+        const glowEl = document.getElementById('glow');
 
-        async function loadDefaultExcelFile(filename) {
-            try {
-                const response = await fetch(filename);
-                if (!response.ok) {
-                    throw new Error(`無法載入檔案: ${response.status}`);
-                }
-                const arrayBuffer = await response.arrayBuffer();
-                const data = new Uint8Array(arrayBuffer);
-                const workbook = XLSX.read(data, { type: 'array' });
-                const sheetName = workbook.SheetNames[0];
-                const worksheet = workbook.Sheets[sheetName];
-                const range = XLSX.utils.decode_range(worksheet['!ref']);
-                excelData = [];
-                for (let rowNum = range.s.r; rowNum <= range.e.r; rowNum++) {
-                    const cellAddress = XLSX.utils.encode_cell({ r: rowNum, c: 0 });
-                    const cell = worksheet[cellAddress];
-                    if (cell && cell.v) {
-                        excelData.push(cell.v);
+        // 初始化頁面
+        document.addEventListener('DOMContentLoaded', function() {
+            // 監聽檔案選擇
+            fileInput.addEventListener('change', handleFileUpload);
+            
+            // 監聽生成按鈕
+            generateBtn.addEventListener('click', generateWordCloud);
+
+            // 預設使用demo.xlsx
+            setTimeout(() => {
+                loadDefaultFile();
+            }, 500);
+
+            // 監聽滑鼠移動，移動光暈效果
+            document.addEventListener('mousemove', moveGlow);
+        });
+
+        // 移動光暈效果
+        function moveGlow(e) {
+            const x = e.clientX;
+            const y = e.clientY;
+
+            // 將光暈移動到滑鼠位置
+            glowEl.style.left = `${x - 75}px`;
+            glowEl.style.top = `${y - 75}px`;
+        }
+
+        // 處理檔案上傳
+        function handleFileUpload(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            currentFile = file.name;
+            currentFileEl.textContent = currentFile;
+            statusTextEl.textContent = `已選擇檔案: ${currentFile}`;
+        }
+
+        // 載入預設檔案
+        function loadDefaultFile() {
+            // 使用fetch API載入同目錄下的demo.xlsx
+            fetch('demo.xlsx')
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('無法載入預設檔案');
                     }
-                }
-                if (excelData.length > 0) {
-                    generateButton.disabled = false; // 啟用按鈕 (雖然現在是自動產生)
-                    generateButton.click(); // 自動觸發產生文字雲
+                    return response.arrayBuffer();
+                })
+                .then(data => {
+                    processExcelData(data);
+                })
+                .catch(error => {
+                    console.error('載入預設檔案失敗:', error);
+                    showTooltip('無法載入預設檔案，請嘗試上傳自己的Excel檔案');
+                });
+        }
+
+        // 生成文字雲
+        function generateWordCloud() {
+            if (isProcessing) return;
+            
+            isProcessing = true;
+            showLoading(true);
+            statusTextEl.textContent = '處理中...';
+
+            // 清除現有的文字雲
+            clearWordCloud();
+
+            // 如果有上傳新檔案，則處理新檔案
+            if (fileInput.files.length > 0) {
+                const file = fileInput.files[0];
+                const reader = new FileReader();
+                
+                reader.onload = function(e) {
+                    processExcelData(e.target.result);
+                };
+                
+                reader.readAsArrayBuffer(file);
+            } else {
+                // 否則重新處理當前檔案
+                if (currentFile === 'demo.xlsx') {
+                    // 嘗試載入本地demo.xlsx
+                    loadDefaultFile();
                 } else {
-                    alert("預設 Excel 檔案的第一欄沒有內容。");
+                    showTooltip('請先選擇Excel檔案');
+                    isProcessing = false;
+                    showLoading(false);
+                    statusTextEl.textContent = '準備就緒';
                 }
-            } catch (error) {
-                console.error("載入預設 Excel 檔案時發生錯誤:", error);
-                alert(`載入預設 Excel 檔案時發生錯誤，請確認 ${filename} 檔案存在於相同路徑。`);
             }
         }
 
-        generateButton.addEventListener('click', () => {
-            wordCloudContainer.innerHTML = ''; // 清空之前的文字雲
-            const words = {};
-            excelData.forEach(text => {
-                // 簡單的詞彙判斷
-                const cleanedText = text.replace(/[^\u4e00-\u9fa5a-zA-Z0-9\s]/g, '');
-                cleanedText.split(/\s+/).filter(word => word.length > 1).forEach(word => {
-                    words[word] = (words[word] || 0) + 1;
+        // 處理Excel資料
+        function processExcelData(data) {
+            try {
+                // 使用XLSX.js解析Excel檔案
+                const workbook = XLSX.read(data, { type: 'array' });
+                
+                // 獲取第一個工作表
+                const firstSheetName = workbook.SheetNames[0];
+                const worksheet = workbook.Sheets[firstSheetName];
+                
+                // 轉換為JSON
+                const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+                
+                // 檢查數據是否有效
+                if (!jsonData || jsonData.length < 2) {
+                    throw new Error('Excel檔案中沒有足夠的數據');
+                }
+                
+                // 獲取第一列的所有數據（不包括標題）
+                const columnData = [];
+                for (let i = 1; i < jsonData.length; i++) {
+                    if (jsonData[i][0]) {
+                        columnData.push(jsonData[i][0].toString());
+                    }
+                }
+                
+                // 如果沒有數據，拋出錯誤
+                if (columnData.length === 0) {
+                    throw new Error('第一列沒有數據');
+                }
+                
+                // 合併所有文本
+                const text = columnData.join(' ');
+                
+                // 使用jieba進行中文斷詞
+                setTimeout(() => {
+                    analyzeText(text);
+                }, 100);
+                
+            } catch (error) {
+                console.error('處理Excel檔案失敗:', error);
+                showTooltip(`處理Excel檔案失敗: ${error.message}`);
+                isProcessing = false;
+                showLoading(false);
+                statusTextEl.textContent = '處理失敗';
+            }
+        }
+
+        // 分析文字並進行斷詞
+        function analyzeText(text) {
+            try {
+                // 使用jieba分詞
+                const jieba = window.jieba;
+                
+                // 確保jieba已加載
+                if (!jieba) {
+                    throw new Error('jieba庫未正確加載');
+                }
+                
+                // 進行分詞
+                jieba.initialize().then(() => {
+                    const segments = jieba.cut(text);
+                    
+                    // 計算詞頻
+                    const wordFreq = {};
+                    segments.forEach(word => {
+                        // 忽略單個字符和數字
+                        if (word.length < 2 || /^\d+$/.test(word)) return;
+                        
+                        if (wordFreq[word]) {
+                            wordFreq[word]++;
+                        } else {
+                            wordFreq[word] = 1;
+                        }
+                    });
+                    
+                    // 轉換為數組並排序
+                    words = Object.keys(wordFreq).map(word => ({
+                        text: word,
+                        freq: wordFreq[word]
+                    }));
+                    
+                    // 按頻率排序
+                    words.sort((a, b) => b.freq - a.freq);
+                    
+                    // 限制最大詞數
+                    words = words.slice(0, 100);
+                    
+                    // 找到最大和最小頻率
+                    const maxFreq = words[0]?.freq || 1;
+                    const minFreq = words[words.length - 1]?.freq || 1;
+                    
+                    // 計算字體大小
+                    words.forEach(word => {
+                        // 將頻率映射到字體大小，範圍12-48px
+                        const fontSize = 12 + (word.freq - minFreq) / (maxFreq - minFreq) * 36;
+                        word.fontSize = fontSize;
+                    });
+                    
+                    // 創建文字雲
+                    createWordCloud();
+                    
+                    isProcessing = false;
+                    showLoading(false);
+                    statusTextEl.textContent = '文字雲已生成';
+                }).catch(error => {
+                    throw error;
                 });
-            });
+            } catch (error) {
+                console.error('文本分析失敗:', error);
+                showTooltip(`文本分析失敗: ${error.message}`);
+                isProcessing = false;
+                showLoading(false);
+                statusTextEl.textContent = '處理失敗';
+            }
+        }
 
-            const wordList = Object.entries(words).map(([text, count]) => ({ text, count }));
-
+        // 創建文字雲
+        function createWordCloud() {
+            if (words.length === 0) {
+                showTooltip('沒有足夠的詞彙來生成文字雲');
+                return;
+            }
+            
+            // 獲取容器尺寸
             const containerWidth = wordCloudContainer.offsetWidth;
             const containerHeight = wordCloudContainer.offsetHeight;
-
-            function getRandomColor() {
-                const letters = '0123456789ABCDEF';
-                let color = '#';
-                for (let i = 0; i < 6; i++) {
-                    color += letters[Math.floor(Math.random() * 16)];
-                }
-                return color;
-            }
-
-            function createShatteredWord(wordObj) {
-                const shatteredWordContainer = document.createElement('div');
-                shatteredWordContainer.style.fontSize = `${12 + Math.log2(wordObj.count) * 5}px`;
-                shatteredWordContainer.style.color = getRandomColor();
-                shatteredWordContainer.style.fontWeight = 'bold';
-                shatteredWordContainer.style.fontFamily = "Microsoft YaHei", sans-serif; // 設定統一字形
-                shatteredWordContainer.style.position = 'absolute'; // 確保容器是絕對定位
-
-                const wordText = wordObj.text;
-                const letters = [];
-                for (let i = 0; i < wordText.length; i++) {
-                    const letterSpan = document.createElement('span');
-                    letterSpan.classList.add('shattered-letter');
-                    letterSpan.textContent = wordText[i];
-
-                    // 隨機旋轉角度和微小位移 (只在創建時設定)
-                    const rotateAngle = (Math.random() - 0.5) * 20; // -10 到 10 度
-                    const translateX = (Math.random() - 0.5) * 5; // -2.5 到 2.5 像素
-                    const translateY = (Math.random() - 0.5) * 5; // -2.5 到 2.5 像素
-
-                    letterSpan.style.transform = `translate(${translateX}px, ${translateY}px) rotate(${rotateAngle}deg)`;
-                    shatteredWordContainer.appendChild(letterSpan);
-                    letters.push(letterSpan);
-                }
-
-                // 初始位置
-                shatteredWordContainer.style.left = `${Math.random() * (containerWidth - shatteredWordContainer.offsetWidth)}px`;
-                shatteredWordContainer.style.top = `${Math.random() * (containerHeight - shatteredWordContainer.offsetHeight)}px`;
-
-                let speedX = (Math.random() - 0.5) * 2; // 隨機水平速度
-                let speedY = (Math.random() - 0.5) * 2; // 隨機垂直速度
-
-                function resetWord() {
-                    shatteredWordContainer.style.opacity = 0; // 消失
-                    setTimeout(() => {
-                        shatteredWordContainer.style.left = `${Math.random() * (containerWidth - shatteredWordContainer.offsetWidth)}px`;
-                        shatteredWordContainer.style.top = `${Math.random() * (containerHeight - shatteredWordContainer.offsetHeight)}px`;
-                        speedX = (Math.random() - 0.5) * 2; // 重新賦予隨機速度
-                        speedY = (Math.random() - 0.5) * 2;
-                        shatteredWordContainer.style.opacity = 1; // 出現
-                    }, 200); // 延遲 200 毫秒後重新出現
-                }
-
-                function animateWord() {
-                    let x = parseFloat(shatteredWordContainer.style.left);
-                    let y = parseFloat(shatteredWordContainer.style.top);
-
-                    x += speedX;
-                    y += speedY;
-
-                    // 邊界碰撞檢測
-                    if (x < 0 || x > containerWidth - shatteredWordContainer.offsetWidth) {
-                        resetWord();
-                        return;
-                    }
-                    if (y < 0 || y > containerHeight - shatteredWordContainer.offsetHeight) {
-                        resetWord();
-                        return;
-                    }
-
-                    shatteredWordContainer.style.left = `${x}px`;
-                    shatteredWordContainer.style.top = `${y}px`;
-
-                    requestAnimationFrame(animateWord);
-                }
-
-                animateWord();
-                return shatteredWordContainer;
-            }
-
-            wordList.forEach(wordObj => {
-                const shatteredWord = createShatteredWord(wordObj);
-                wordCloudContainer.appendChild(shatteredWord);
+            
+            // 清除現有的文字雲
+            clearWordCloud();
+            
+            // 創建文字元素
+            words.forEach(word => {
+                const wordEl = document.createElement('div');
+                wordEl.className = 'word';
+                wordEl.textContent = word.text;
+                wordEl.style.fontSize = `${word.fontSize}px`;
+                
+                // 設置隨機顏色
+                const color = getRandomColor();
+                wordEl.style.color = color;
+                
+                // 設置初始位置
+                const x = Math.random() * (containerWidth - 100) + 50;
+                const y = Math.random() * (containerHeight - 100) + 50;
+                wordEl.style.left = `${x}px`;
+                wordEl.style.top = `${y}px`;
+                
+                // 設置速度
+                const vx = (Math.random() - 0.5) * 2;
+                const vy = (Math.random() - 0.5) * 2;
+                
+                // 儲存速度和位置
+                wordEl.dataset.x = x;
+                wordEl.dataset.y = y;
+                wordEl.dataset.vx = vx;
+                wordEl.dataset.vy = vy;
+                wordEl.dataset.freq = word.freq;
+                
+                // 添加點擊事件顯示頻率
+                wordEl.addEventListener('mouseover', function() {
+                    showTooltip(`"${word.text}" 出現頻率: ${word.freq}次`, true);
+                });
+                
+                wordEl.addEventListener('mouseout', function() {
+                    showTooltip('', false);
+                });
+                
+                wordCloudContainer.appendChild(wordEl);
+                wordElements.push(wordEl);
             });
-        });
+            
+            // 啟動動畫
+            startAnimation();
+        }
+
+        // 啟動動畫
+        function startAnimation() {
+            if (animationFrameId) {
+                cancelAnimationFrame(animationFrameId);
+            }
+            
+            function animate() {
+                // 獲取容器尺寸
+                const containerWidth = wordCloudContainer.offsetWidth;
+                const containerHeight = wordCloudContainer.offsetHeight;
+                
+                // 橢圓形邊界
+                const a = containerWidth / 2; // 橢圓的半長軸
+                const b = containerHeight / 2; // 橢圓的半短軸
+                const centerX = containerWidth / 2;
+                const centerY = containerHeight / 2;
+                
+                wordElements.forEach(wordEl => {
+                    // 獲取當前位置和速度
+                    let x = parseFloat(wordEl.dataset.x);
+                    let y = parseFloat(wordEl.dataset.y);
+                    let vx = parseFloat(wordEl.dataset.vx);
+                    let vy = parseFloat(wordEl.dataset.vy);
+                    
+                    // 更新位置
+                    x += vx;
+                    y += vy;
+                    
+                    // 檢查是否碰到橢圓邊界
+                    const dx = x - centerX;
+                    const dy = y - centerY;
+                    
+                    // 計算點到橢圓中心的距離與點在橢圓上對應方向的半徑的比值
+                    const r = Math.sqrt((dx * dx) / (a * a) + (dy * dy) / (b * b));
+                    
+                    // 如果比值大於或等於1，說明點超出了橢圓
+                    if (r >= 0.9) {
+                        // 計算法線向量
+                        const nx = dx / (a * a);
+                        const ny = dy / (b * b);
+                        const normalLength = Math.sqrt(nx * nx + ny * ny);
+                        
+                        // 標準化法線向量
+                        const normalizedNx = nx / normalLength;
+                        const normalizedNy = ny / normalLength;
+                        
+                        // 計算速度在法線方向上的分量
+                        const dotProduct = vx * normalizedNx + vy * normalizedNy;
+                        
+                        // 計算反射後的速度
+                        vx = vx - 2 * dotProduct * normalizedNx;
+                        vy = vy - 2 * dotProduct * normalizedNy;
+                        
+                        // 將點移回橢圓內
+                        x = centerX + dx / r * 0.89;
+                        y = centerY + dy / r * 0.89;
+                    }
+                    
+                    // 更新位置和速度
+                    wordEl.dataset.x = x;
+                    wordEl.dataset.y = y;
+                    wordEl.dataset.vx = vx;
+                    wordEl.dataset.vy = vy;
+                    
+                    // 更新元素位置
+                    wordEl.style.left = `${x}px`;
+                    wordEl.style.top = `${y}px`;
+                });
+                
+                animationFrameId = requestAnimationFrame(animate);
+            }
+            
+            animate();
+        }
+
+        // 清除文字雲
+        function clearWordCloud() {
+            if (animationFrameId) {
+                cancelAnimationFrame(animationFrameId);
+                animationFrameId = null;
+            }
+            
+            wordElements.forEach(el => {
+                el.remove();
+            });
+            
+            wordElements = [];
+        }
+
+        // 顯示/隱藏載入畫面
+        function showLoading(show) {
+            loadingEl.style.display = show ? 'flex' : 'none';
+        }
+
+        // 顯示工具提示
+        function showTooltip(message, hover = false) {
+            if (!message) {
+                if (tooltipTimeout) {
+                    clearTimeout(tooltipTimeout);
+                }
+                
+                tooltipEl.classList.remove('tooltip-visible');
+                return;
+            }
+            
+            tooltipEl.textContent = message;
+            tooltipEl.classList.add('tooltip-visible');
+            
+            // 如果不是hover觸發的提示，3秒後自動隱藏
+            if (!hover) {
+                if (tooltipTimeout) {
+                    clearTimeout(tooltipTimeout);
+                }
+                
+                tooltipTimeout = setTimeout(() => {
+                    tooltipEl.classList.remove('tooltip-visible');
+                }, 3000);
+            }
+            
+            // 更新提示位置
+            document.addEventListener('mousemove', updateTooltipPosition);
+        }
+
+        // 更新提示位置
+        function updateTooltipPosition(e) {
+            const x = e.clientX;
+            const y = e.clientY;
+            
+            tooltipEl.style.left = `${x + 15}px`;
+            tooltipEl.style.top = `${y + 15}px`;
+        }
+
+        // 獲取隨機顏色
+        function getRandomColor() {
+            const colors = [
+                '#00a8ff', // 藍色
+                '#9c27b0', // 紫色
+                '#00e676', // 綠色
+                '#ffeb3b', // 黃色
+                '#ff5722', // 橙色
+                '#f50057', // 粉紅色
+                '#2196f3', // 淺藍色
+                '#8bc34a', // 淺綠色
+                '#ff9800', // 淺橙色
+                '#e91e63', // 桃紅色
+                '#673ab7', // 深紫色
+                '#4caf50', // 中綠色
+                '#03a9f4', // 天藍色
+                '#cddc39', // 酸橙色
+                '#795548'  // 棕色
+            ];
+            
+            return colors[Math.floor(Math.random() * colors.length)];
+        }
     </script>
 </body>
 </html>
