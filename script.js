@@ -100,20 +100,39 @@ document.addEventListener('DOMContentLoaded', () => {
 const options = {
             list: listData,
             gridSize: Math.round(16 * wordCloudContainer.offsetWidth / 1024),
+
+            // *** 修改 weightFactor ***
             weightFactor: function (size) {
-                // 保持原來的權重因子，或根據需要調整
-                return Math.pow(size, 1.2) * (wordCloudContainer.offsetWidth / 1024) * 1;
+                const containerHeight = wordCloudContainer.offsetHeight;
+                const containerWidth = wordCloudContainer.offsetWidth;
+                // 基礎大小計算 (可以保持或調整)
+                // 我們乘以一個較小的基礎比例因子，讓大小對頻率的反應不至於太劇烈
+                let calculatedSize = Math.pow(size, 0.9) * (containerWidth / 1024) * 10; // 降低指數和基礎比例因子
+
+                // *** 設定最大字體大小上限 ***
+                // 讓最大字體不超過容器高度的 1/3 或 1/4 是一個常見做法
+                // 同時也考慮容器寬度，取較小者的一部分作為限制
+                const maxSize = Math.min(containerHeight / 3.5, containerWidth / 3); // 例如，不超過高度的1/3.5或寬度的1/3
+
+                // 確保計算出的尺寸不超過最大限制，同時也不會小於 minSize
+                // Math.min 用於確保不超過 maxSize
+                // minSize 會由 WordCloud 內部處理，我們主要關心上限
+                return Math.min(calculatedSize, maxSize);
             },
+
             fontFamily: 'Arial, sans-serif',
             color: 'random-dark',
             backgroundColor: '#ffffff',
-            rotateRatio: 0.4, // 保留旋轉比例以增加動態感
-            minSize: 5,
+            rotateRatio: 0.5, // 保持旋轉
+            minSize: 5,       // 最小字體大小
+            shuffle: true,    // 保持隨機繪製
+
             // ***** 新增的選項 *****
-            shuffle: true // <--- 新增：隨機打亂繪製順序，增強生成動畫的隨機感
-            // ***** 您也可以嘗試其他選項 *****
-            shape: 'circle', // 例如：設定形狀為圓形
-            ellipticity: 0.65, // 橢圓度 (如果形狀不是 'square')
+            drawOutOfBound: false, // <--- 新增：禁止繪製超出邊界的文字
+
+            // 其他可能的選項保持不變或根據需要添加
+            // shape: 'circle',
+            // ellipticity: 0.65,
         };
 
                 WordCloud(wordCloudContainer, options);
