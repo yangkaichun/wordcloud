@@ -1,21 +1,22 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>國衛院AI小官家 動態文字雲產生器</title>
+    <title>動態文字雲產生器</title>
     <style>
         body {
             font-family: sans-serif;
         }
         #wordCloudContainer {
             width: 100%;
-            height: 600px; /* 可以調整高度 */
-            border: 5px solid #ccc;
+            height: 400px; /* 可以調整高度 */
+            border: 1px solid #ccc;
             position: relative;
             overflow: hidden;
             background-color: #e0f2f7; /* 淺藍色 */
         }
         .word {
             position: absolute;
+            font-size: 16px;
             cursor: default;
         }
     </style>
@@ -26,7 +27,6 @@
     <div id="wordCloudContainer"></div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jieba.js/0.2.2/jieba.min.js"></script>
     <script>
         const fileInput = document.getElementById('excelFile');
         const generateButton = document.getElementById('generateButton');
@@ -67,15 +67,14 @@
 
         generateButton.addEventListener('click', () => {
             wordCloudContainer.innerHTML = ''; // 清空之前的文字雲
-            const text = excelData.join(' ');
             const words = {};
-            const jiebaResult = jieba.cut(text, true); // 使用精確模式斷詞
-
-            for (const word of jiebaResult) {
-                if (word.trim().length > 1) { // 排除單字元的詞
+            excelData.forEach(text => {
+                // 簡單的詞彙判斷
+                const cleanedText = text.replace(/[^\u4e00-\u9fa5a-zA-Z0-9\s]/g, '');
+                cleanedText.split(/\s+/).filter(word => word.length > 1).forEach(word => {
                     words[word] = (words[word] || 0) + 1;
-                }
-            }
+                });
+            });
 
             const wordList = Object.entries(words).map(([text, count]) => ({ text, count }));
 
