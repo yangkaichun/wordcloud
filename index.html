@@ -20,6 +20,7 @@
         }
         .shattered-word {
             position: absolute;
+            font-family: "Microsoft YaHei", sans-serif; /* 設定統一字形為微軟正黑體，若找不到則使用 sans-serif */
         }
         .shattered-letter {
             display: inline-block;
@@ -90,8 +91,6 @@
             const containerWidth = wordCloudContainer.offsetWidth;
             const containerHeight = wordCloudContainer.offsetHeight;
 
-            const availableFonts = ["Arial", "Helvetica", "SimSun", "SimHei", "Microsoft YaHei", "MingLiU", "PMingLiU", "sans-serif", "serif"]; // 您可以擴充這個列表
-
             function getRandomColor() {
                 const letters = '0123456789ABCDEF';
                 let color = '#';
@@ -101,17 +100,13 @@
                 return color;
             }
 
-            function getRandomFont() {
-                return availableFonts[Math.floor(Math.random() * availableFonts.length)];
-            }
-
             function createShatteredWord(wordObj) {
                 const shatteredWordContainer = document.createElement('div');
                 shatteredWordContainer.classList.add('shattered-word');
                 shatteredWordContainer.style.fontSize = `${12 + Math.log2(wordObj.count) * 5}px`;
                 shatteredWordContainer.style.color = getRandomColor();
                 shatteredWordContainer.style.fontWeight = 'bold';
-                shatteredWordContainer.style.fontFamily = getRandomFont(); // 設定隨機字形
+                // 隨機字形的設定已移除
 
                 const wordText = wordObj.text;
                 for (let i = 0; i < wordText.length; i++) {
@@ -143,11 +138,11 @@
                     y += speedY;
 
                     // 邊界碰撞檢測
-                    if (x < 0 || x > containerWidth - shatteredWordContainer.offsetWidth) {
-                        speedX *= -1;
+                    if (x < 50 || x > containerWidth - shatteredWordContainer.offsetWidth) {
+                        speedX *= -100;
                     }
-                    if (y < 0 || y > containerHeight - shatteredWordContainer.offsetHeight) {
-                        speedY *= -1;
+                    if (y < 50 || y > containerHeight - shatteredWordContainer.offsetHeight) {
+                        speedY *= -100;
                     }
 
                     shatteredWordContainer.style.left = `${x}px`;
