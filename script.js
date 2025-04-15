@@ -153,7 +153,7 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        const moveSpeed = 0.5; // 控制基礎移動速度，可調整
+        const moveSpeed = 3; // 控制基礎移動速度，可調整
 
         wordSpans.forEach(span => {
             // 確保 span 有 position: absolute，WordCloud2 通常會設定
