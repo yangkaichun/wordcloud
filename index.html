@@ -7,23 +7,18 @@
             font-family: sans-serif;
         }
         #wordCloudContainer {
-            width: 100%; /* 或 80%，根據您的需求 */
-            height: 600px; /* 或 90%，根據您的需求 */
+            width: 100%;
+            height: 600px; /* 可以調整高度 */
             border: 0px solid #ccc;
             position: relative;
             overflow: hidden;
-            background-color: #fff; /* 白色 */
-            border-radius: 50%; /* 使方框變為橢圓形 */
-            display: flex; /* 確保內容居中，視覺效果更佳 */
-            justify-content: center;
-            align-items: center;
+            background-color: #e0f2f7; /* 淺藍色 */
         }
-        .shattered-letter {
-            display: inline-block;
-            font-size: inherit;
-            font-weight: inherit;
-            color: inherit;
-            position: relative; /* 允許內部微調位置 */
+        .word {
+            position: absolute;
+            font-size: 16px;
+            cursor: default;
+            font-weight: bold; /* 文字加粗 */
         }
     </style>
 </head>
@@ -96,29 +91,51 @@
                 return color;
             }
 
-            function createShatteredWord(wordObj) {
-                const shatteredWordContainer = document.createElement('div');
-                // shatteredWordContainer.classList.add('shattered-word'); // 刪除此行
-                shatteredWordContainer.style.fontSize = `${12 + Math.log2(wordObj.count) * 5}px`;
-                shatteredWordContainer.style.color = getRandomColor();
-                shatteredWordContainer.style.fontWeight = 'bold';
-                shatteredWordContainer.style.fontFamily = "Microsoft YaHei", sans-serif; // 設定統一字形
-
-                const wordText = wordObj.text;
-                for (let i = 0; i < wordText.length; i++) {
-                    const letterSpan = document.createElement('span');
-                    letterSpan.classList.add('shattered-letter');
-                    letterSpan.textContent = wordText[i];
-
-                    // 隨機旋轉角度和微小位移
-                    const rotateAngle = (Math.random() - 0.5) * 20; // -10 到 10 度
-                    const translateX = (Math.random() - 0.5) * 5; // -2.5 到 2.5 像素
-                    const translateY = (Math.random() - 0.5) * 5; // -2.5 到 2.5 像素
-
-                    letterSpan.style.transform = `translate(${translateX}px, <span class="math-inline">\{translateY\}px\) rotate\(</span>{rotateAngle}deg)`;
-                    shatteredWordContainer.appendChild(letterSpan);
-                }
+            function createWordElement(wordObj) {
+                const wordElement = document.createElement('span');
+                wordElement.classList.add('word');
+                wordElement.textContent = wordObj.text;
+                wordElement.style.fontSize = `${12 + Math.log2(wordObj.count) * 5}px`; // 根據詞頻調整大小 (調整乘數以改變大小比例)
+                wordElement.style.color = getRandomColor(); // 設定隨機顏色
+                wordElement.style.fontWeight = 'bold'; // 設定文字為粗體
 
                 // 初始位置
-                shatteredWordContainer.style.left = `${Math.random() * (containerWidth - shatteredWordContainer.offsetWidth)}px`;
-                shatteredWordContainer.style.
+                wordElement.style.left = `${Math.random() * (containerWidth - wordElement.offsetWidth)}px`;
+                wordElement.style.top = `${Math.random() * (containerHeight - wordElement.offsetHeight)}px`;
+
+                const speedX = (Math.random() - 0.5) * 2; // 隨機水平速度
+                const speedY = (Math.random() - 0.5) * 2; // 隨機垂直速度
+
+                function animateWord() {
+                    let x = parseFloat(wordElement.style.left);
+                    let y = parseFloat(wordElement.style.top);
+
+                    x += speedX;
+                    y += speedY;
+
+                    // 邊界碰撞檢測
+                    if (x < 0 || x > containerWidth - wordElement.offsetWidth) {
+                        speedX *= -1;
+                    }
+                    if (y < 0 || y > containerHeight - wordElement.offsetHeight) {
+                        speedY *= -1;
+                    }
+
+                    wordElement.style.left = `${x}px`;
+                    wordElement.style.top = `${y}px`;
+
+                    requestAnimationFrame(animateWord);
+                }
+
+                animateWord();
+                return wordElement;
+            }
+
+            wordList.forEach(wordObj => {
+                const wordElement = createWordElement(wordObj);
+                wordCloudContainer.appendChild(wordElement);
+            });
+        });
+    </script>
+</body>
+</html>
