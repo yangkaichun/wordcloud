@@ -3,28 +3,69 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>動態文字雲產生器</title>
-    <link rel="stylesheet" href="style.css">
+    <title>Excel 內容文字雲</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+        }
+        .button-container {
+            margin-bottom: 20px;
+        }
+        button {
+            padding: 10px 15px;
+            font-size: 16px;
+            cursor: pointer;
+            margin: 0 10px;
+        }
+        #wordCloudContainer {
+            width: 600px; /* 調整文字雲容器寬度 */
+            height: 400px; /* 調整文字雲容器高度 */
+            border: 1px solid #ccc;
+            margin-top: 20px;
+            position: relative; /* Needed for wordcloud2.js positioning */
+        }
+        #fileNameDisplay {
+            margin-top: 10px;
+            font-style: italic;
+            color: #555;
+        }
+        /* 讓隱藏的 input 看不到 */
+        #fileInput {
+            display: none;
+        }
+        #loadingMessage {
+            display: none; /* 預設隱藏 */
+            color: blue;
+            margin-top: 10px;
+        }
+    </style>
 </head>
 <body>
 
-    <h1>動態文字雲產生器</h1>
+    <h1>從 Excel 生成文字雲</h1>
 
-    <div class="controls">
-        <input type="file" id="excelFile" accept=".xlsx, .xls" style="display: none;">
+    <div class="button-container">
+        <button id="selectFileButton">1. 選擇 Excel 檔案</button>
 
-        <button id="selectFileBtn">1. 選擇 Excel 檔案</button>
-
-        <button id="generateCloudBtn" disabled>2. 產生文字雲</button>
+        <button id="generateCloudButton" disabled>2. 生成文字雲 (讀取第一欄)</button>
     </div>
 
-    <div id="status">請先選擇一個 Excel 檔案。</div>
+    <input type="file" id="fileInput" accept=".xlsx, .xls">
+
+    <div id="fileNameDisplay">尚未選擇檔案</div>
+    <div id="loadingMessage">處理中，請稍候...</div>
+
 
     <div id="wordCloudContainer">
         </div>
 
-    <script src="lib/xlsx.full.min.js"></script>
-    <script src="lib/wordcloud2.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/wordcloud2.js/1.1.1/wordcloud2.min.js"></script>
+
     <script src="script.js"></script>
 
 </body>
