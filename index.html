@@ -3,28 +3,24 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>動態文字雲產生器</title>
-    <link rel="stylesheet" href="style.css">
+    <title>動態文字雲產生器 (無中文斷詞 - 加強動畫)</title> <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
-    <h1>國衛院小管家文字雲產生器</h1>
+    <h1>動態文字雲產生器 (無中文斷詞 - 加強動畫)</h1>
 
     <div class="controls">
         <input type="file" id="excelFile" accept=".xlsx, .xls" style="display: none;">
-
-        <button id="selectFileBtn">請選擇自國衛院小管家後台輸出之問答Excel</button>
-
+        <button id="selectFileBtn">1. 選擇 Excel 檔案</button>
         <button id="generateCloudBtn" disabled>2. 產生文字雲</button>
     </div>
-
     <div id="status">請先選擇一個 Excel 檔案。</div>
-
-    <div id="wordCloudContainer">
-        </div>
+    <div id="wordCloudContainer"></div>
 
     <script src="lib/xlsx.full.min.js"></script>
+
     <script src="lib/wordcloud2.js"></script>
+
     <script src="script.js"></script>
 
 </body>
