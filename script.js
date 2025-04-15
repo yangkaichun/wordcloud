@@ -1,335 +1,237 @@
-/**
- * Dynamic Chinese Word Cloud Generator Script
- * Author: Gemini AI Assistant
- * Last Updated: 2025-04-15 (Based on user interaction)
- * Description: Reads the first column of an Excel file, performs Chinese word segmentation,
- * generates an animated word cloud respecting container boundaries,
- * and applies size capping and stop word filtering.
- */
 document.addEventListener('DOMContentLoaded', () => {
-    // --- DOM Element References ---
     const selectFileBtn = document.getElementById('selectFileBtn');
     const generateCloudBtn = document.getElementById('generateCloudBtn');
     const excelFileInput = document.getElementById('excelFile');
     const wordCloudContainer = document.getElementById('wordCloudContainer');
     const statusDiv = document.getElementById('status');
 
-    // --- Global Variables ---
-    let selectedFile = null; // Stores the selected Excel file object
-    let wordData = []; // Stores the raw text extracted from Excel
+    let selectedFile = null;
+    let wordData = [];
 
-    // --- Animation State Variables ---
-    let wordSpans = []; // Stores the generated word <span> elements
-    let wordStates = []; // Stores state for each word {element, x, y, dx, dy}
-    let animationFrameId = null; // ID for cancelling animation frame
+    // --- 新增：動畫相關的全域變數 ---
+    let wordSpans = []; // 儲存文字的 <span> 元素
+    let wordStates = []; // 儲存每個文字的動畫狀態 {element, x, y, dx, dy}
+    let animationFrameId = null; // 儲存 requestAnimationFrame 的 ID
 
-    // --- Button 1: Trigger File Selection ---
+    // --- 按鈕 1: 選擇檔案 (不變) ---
     selectFileBtn.addEventListener('click', () => {
-        excelFileInput.click(); // Programmatically click the hidden file input
+        excelFileInput.click();
     });
 
-    // --- File Input Change Event ---
+    // --- 檔案輸入框變更事件 ---
     excelFileInput.addEventListener('change', (event) => {
-        // Stop any existing animation when a new file is selected (or selection cancelled)
+        // --- 新增：停止當前的動畫 ---
         if (animationFrameId) {
             cancelAnimationFrame(animationFrameId);
             animationFrameId = null;
         }
-        wordStates = []; // Clear animation states
+        wordStates = []; // 清空舊狀態
 
         const file = event.target.files[0];
         if (file) {
             selectedFile = file;
             statusDiv.textContent = `已選擇檔案： ${file.name}`;
-            generateCloudBtn.disabled = false; // Enable the generate button
-            // Clear previous results
+            generateCloudBtn.disabled = false;
             wordCloudContainer.innerHTML = '';
             wordCloudContainer.classList.remove('has-cloud');
             wordData = [];
-            // Reset file input to allow re-selecting the same file
             excelFileInput.value = '';
         } else {
-            // No file selected or selection cancelled
             statusDiv.textContent = '未選擇任何檔案。';
             generateCloudBtn.disabled = true;
             selectedFile = null;
         }
     });
 
-    // --- Button 2: Generate Word Cloud ---
+    // --- 按鈕 2: 產生文字雲 ---
     generateCloudBtn.addEventListener('click', () => {
         if (!selectedFile) {
             alert('請先選擇一個 Excel 檔案！');
             return;
         }
 
-        // Stop any potentially running animation from a previous generation
+        // --- 新增：停止當前的動畫 ---
         if (animationFrameId) {
             cancelAnimationFrame(animationFrameId);
             animationFrameId = null;
         }
-        wordStates = []; // Clear animation states
+        wordStates = []; // 清空舊狀態
 
         statusDiv.textContent = '正在讀取並處理檔案...';
-        generateCloudBtn.disabled = true; // Disable button during processing
+        generateCloudBtn.disabled = true;
 
         const reader = new FileReader();
 
         reader.onload = function(e) {
             try {
-                // 1. Read Excel Data using SheetJS
                 const data = new Uint8Array(e.target.result);
                 const workbook = XLSX.read(data, { type: 'array' });
                 const firstSheetName = workbook.SheetNames[0];
-                if (!firstSheetName) {
-                    throw new Error("Excel 檔案中找不到工作表。");
-                }
+                if (!firstSheetName) throw new Error("Excel 檔案中找不到工作表。");
                 const worksheet = workbook.Sheets[firstSheetName];
-
-                // Extract text from the first column (A) into an array of strings
-                // header: 1 converts rows to arrays; range: 0 limits to the first column
                 const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, range: 0 });
+                wordData = jsonData.slice(1).map(row => row[0]).filter(text => text !== null && text !== undefined && String(text).trim() !== '').map(text => String(text).trim());
 
-                // Process rows: skip header (slice(1)), get first cell (row[0]), filter empty/null, trim whitespace
-                wordData = jsonData
-                    .slice(1) // Assuming first row is header, remove if not
-                    .map(row => row[0])
-                    .filter(text => text !== null && text !== undefined && String(text).trim() !== '')
-                    .map(text => String(text).trim());
+                if (wordData.length === 0) throw new Error("選擇的 Excel 檔案第一欄沒有有效的文字內容。");
 
-                if (wordData.length === 0) {
-                    throw new Error("選擇的 Excel 檔案第一欄沒有有效的文字內容。");
-                }
-
-                // 2. Calculate Word Frequencies using Jieba for Chinese Segmentation
-                statusDiv.textContent = '正在執行中文斷詞並計算詞頻...';
-                const wordFrequencies = {};
-
-                // Check if jieba library is loaded (crucial for error handling)
-                if (typeof jieba === 'undefined') {
-                    // This error message is triggered if the CDN link in index.html fails to load
-                    throw new Error("中文斷詞函式庫 (jieba-js) 未能成功載入！請檢查 HTML 中的 CDN 連結及網路連線。");
-                }
-
-                // Define Chinese stop words (customize as needed)
-                const stopWords = new Set([
-                    '的', '了', '是', '我', '你', '他', '她', '它', '們', '一個', '也', '在', '有', '和', '就', '不', '人', '都', '而', '及',
-                    '與', '或', '這個', '那個', '我們', '你們', '他們', '她們', '它們', '之', '其', '或', '等', '於', '以', '及', '因', '為',
-                    '從', '到', '由', '向', '於', '自', '至', '諸', '乎', '哉', '也', '但', '並', '且', '所', '把', '被', '將', '使', '得',
-                     '對', '來說', '對於', '關於', '的話', '然而', '因此', '所以', '因為', '由於', '此外', '另外', '還有', '以及', '例如',
-                     '!', '?', '.', ',', ';', ':', '"', "'", '(', ')', '[', ']', '{', '}', '、', '。', '，', '！', '？', '；', '：', '“', '”',
-                     '‘', '’', '（', '）', '【', '】', '《', '》', '「', '」', '『', '』', ' ', '\t', '\n', '\r' // Include symbols/whitespace
-                ]);
-
-                // Regex to remove punctuation and digits
-                const punctuationRegex = /[\s\.。,，!！?？;；:：、\'\"“”‘’「」『』（）《》〈〉【】\[\]{}~～@#\$%\^&\*()_\+\-=|\\`\d]+/g;
-
-                wordData.forEach(text => {
-                    const segmentedWords = jieba.cut(String(text)); // Perform segmentation
-
-                    segmentedWords.forEach(word => {
-                        const cleanWord = word.replace(punctuationRegex, ''); // Clean word
-
-                        // Filter: non-empty, longer than 1 char (optional), not a stop word
-                        if (cleanWord && cleanWord.length > 1 && !stopWords.has(cleanWord)) {
-                            wordFrequencies[cleanWord] = (wordFrequencies[cleanWord] || 0) + 1;
-                        }
-                    });
-                });
-
-                // Convert frequency map to WordCloud2 list format: [['word', size], ...]
-                const listData = Object.entries(wordFrequencies).map(([word, count]) => [word, count]);
-
-                if (listData.length === 0) {
-                     throw new Error("經過斷詞與過濾後，沒有有效的詞彙可產生文字雲。請檢查 Excel 內容或調整停用詞列表。");
-                }
-
-                // 3. Prepare and Generate Word Cloud using WordCloud2.js
-                wordCloudContainer.innerHTML = ''; // Clear previous cloud
-                wordCloudContainer.classList.add('has-cloud'); // Add class for CSS styling (e.g., hide placeholder)
                 statusDiv.textContent = '正在產生文字雲...';
 
-                // WordCloud2 Options
+                const wordFrequencies = {};
+                wordData.forEach(text => {
+                    const words = text.toLowerCase().split(/\s+/);
+                    words.forEach(word => {
+                        const cleanWord = word.replace(/[.,!?;:()"']/g, '');
+                        if (cleanWord) wordFrequencies[cleanWord] = (wordFrequencies[cleanWord] || 0) + 1;
+                    });
+                });
+                const listData = Object.entries(wordFrequencies).map(([word, count]) => [word, count]);
+
+                wordCloudContainer.innerHTML = '';
+                wordCloudContainer.classList.add('has-cloud');
+
                 const options = {
-                    list: listData, // Word frequency data
-                    gridSize: Math.round(16 * wordCloudContainer.offsetWidth / 1024), // Adjust grid based on container size
-                    // Function to determine word size, capped to prevent oversized words
+                    list: listData,
+                    gridSize: Math.round(16 * wordCloudContainer.offsetWidth / 1024),
                     weightFactor: function (size) {
                         const containerHeight = wordCloudContainer.offsetHeight;
                         const containerWidth = wordCloudContainer.offsetWidth;
-                        // Adjust base size calculation (exponent, multiplier) as needed
                         let calculatedSize = Math.pow(size, 0.9) * (containerWidth / 1024) * 10;
-                        // Set max size relative to container dimensions
                         const maxSize = Math.min(containerHeight / 3.5, containerWidth / 3);
-                        // Return the smaller of calculated size or max size, but respect minSize implicitly
                         return Math.min(calculatedSize, maxSize);
                     },
-                    fontFamily: '"Microsoft JhengHei", "PingFang TC", "Noto Sans TC", sans-serif', // CJK fonts + fallback
-                    color: 'random-dark', // Word color scheme
-                    backgroundColor: '#ffffff', // Background of the cloud area
-                    rotateRatio: 0.4, // Proportion of words to rotate (0 to 1)
-                    minSize: 8, // Minimum font size (pixels), slightly larger for CJK
-                    shuffle: true, // Randomize word placement order
-                    drawOutOfBound: false, // Prevent words from drawing outside the container
+                    fontFamily: 'Arial, sans-serif',
+                    color: 'random-dark',
+                    backgroundColor: '#ffffff',
+                    rotateRatio: 0.5,
+                    minSize: 5,
+                    shuffle: true,
+                    drawOutOfBound: false,
+                    // *** 重要：WordCloud2 需要能回調 ***
+                    // 我們使用 'hover' 事件來觸發，雖然有點取巧，
+                    // 但可以確保元素已渲染。或者設置一個短延遲。
+                    // 一個更可靠的方式是監聽容器的 DOM 變化，但較複雜。
+                    // 這裡我們在 WordCloud 調用後直接啟動。
                 };
 
-                // Generate the word cloud
+                // --- 執行 WordCloud ---
                 WordCloud(wordCloudContainer, options);
 
                 statusDiv.textContent = '文字雲產生完成！正在啟動動畫...';
 
-                // 4. Initialize and Start Continuous Word Animation
+                // --- 新增：啟動文字移動動畫 ---
                 initializeAndStartAnimation();
 
+
             } catch (error) {
-                // Error Handling within file processing and cloud generation
-                console.error("處理過程發生錯誤:", error);
+                console.error("處理 Excel 或產生文字雲時發生錯誤:", error);
                 statusDiv.textContent = `發生錯誤： ${error.message}`;
                 alert(`處理檔案時發生錯誤： ${error.message}`);
-                // Ensure animation stops on error
-                if (animationFrameId) {
-                    cancelAnimationFrame(animationFrameId);
-                    animationFrameId = null;
-                }
-                wordStates = [];
-                wordCloudContainer.innerHTML = '產生失敗'; // Display error in container
+                wordCloudContainer.innerHTML = '產生失敗';
                 wordCloudContainer.classList.remove('has-cloud');
             } finally {
-                // Re-enable the generate button regardless of success or failure
                 generateCloudBtn.disabled = false;
             }
-        }; // End of reader.onload
+        };
 
         reader.onerror = function(e) {
-            // File Reading Error Handling
             console.error("讀取檔案時發生錯誤:", e);
             statusDiv.textContent = '讀取檔案失敗！';
             alert('讀取檔案失敗！');
-            generateCloudBtn.disabled = false; // Re-enable button
+            generateCloudBtn.disabled = false;
         };
 
-        // Start reading the selected file as an ArrayBuffer (needed by SheetJS)
         reader.readAsArrayBuffer(selectedFile);
-    }); // End of generateCloudBtn click listener
+    });
 
-    // --- Animation Functions ---
-
-    /**
-     * Initializes animation states for each word span and starts the animation loop.
-     * This function is called after WordCloud() successfully generates the spans.
-     */
+    // --- 新增：初始化並啟動動畫的函數 ---
     function initializeAndStartAnimation() {
-        wordSpans = wordCloudContainer.querySelectorAll('span'); // Get all word spans generated by WordCloud2
-
-        // Reset states array for the new cloud
-        wordStates = [];
+        wordSpans = wordCloudContainer.querySelectorAll('span');
+        wordStates = []; // 重置狀態
 
         if (wordSpans.length === 0) {
-            console.warn("找不到文字元素來執行動畫 (可能詞彙過少或 WordCloud 尚未完成)。");
-            return; // No spans found, cannot animate
+            console.warn("找不到文字元素來執行動畫。");
+            return;
         }
 
-        const moveSpeed = 0.5; // Base movement speed, adjust for faster/slower animation
+        const moveSpeed = 0.5; // 控制基礎移動速度，可調整
 
         wordSpans.forEach(span => {
-            // Ensure spans are absolutely positioned for left/top manipulation
-            // WordCloud2 generally sets this, but we double-check/force it if needed.
+            // 確保 span 有 position: absolute，WordCloud2 通常會設定
             if (window.getComputedStyle(span).position !== 'absolute') {
-                 span.style.position = 'absolute';
-                 console.warn("Word span was not absolutely positioned; forcing. Animation might be affected if WordCloud2 output changes.");
+                 span.style.position = 'relative'; // 或 absolute，依賴 WordCloud 輸出
+                 // 如果 WordCloud2 未設定 absolute，此動畫邏輯需大改
+                 console.warn("Word span is not absolutely positioned, animation might not work as expected.");
             }
-            // Store initial state: the DOM element, its starting position (read from inline style),
-            // and a random initial velocity vector (dx, dy).
             wordStates.push({
                 element: span,
-                x: parseFloat(span.style.left) || 0, // Get initial X from style, default to 0
-                y: parseFloat(span.style.top) || 0,  // Get initial Y from style, default to 0
-                dx: (Math.random() - 0.5) * 2 * moveSpeed, // Random X velocity (-moveSpeed to +moveSpeed)
-                dy: (Math.random() - 0.5) * 2 * moveSpeed  // Random Y velocity (-moveSpeed to +moveSpeed)
+                x: parseFloat(span.style.left) || 0, // 從樣式讀取初始位置
+                y: parseFloat(span.style.top) || 0,
+                dx: (Math.random() - 0.5) * 2 * moveSpeed, // 隨機初始速度 (-moveSpeed to +moveSpeed)
+                dy: (Math.random() - 0.5) * 2 * moveSpeed
             });
         });
 
-        // Cancel any previous animation frame before starting a new loop
+        // 清除可能殘留的舊幀
         if (animationFrameId) {
             cancelAnimationFrame(animationFrameId);
         }
-
-        // Start the animation loop using requestAnimationFrame
+        // 啟動動畫循環
         animateWords();
         statusDiv.textContent = '文字雲產生完成！動畫已啟動。';
     }
 
-    /**
-     * The main animation loop function, called repeatedly via requestAnimationFrame.
-     * Updates position, handles boundary collision (bounce), and applies styles to word spans.
-     */
+    // --- 新增：動畫循環函數 ---
     function animateWords() {
-        // Get current container dimensions (can change if window is resized)
         const containerWidth = wordCloudContainer.offsetWidth;
         const containerHeight = wordCloudContainer.offsetHeight;
 
-        // Update each word's state
         wordStates.forEach(state => {
             const elem = state.element;
-            // Get element dimensions (needed for boundary check)
-            // Consider caching these if elements don't resize and performance is critical
             const elemWidth = elem.offsetWidth;
             const elemHeight = elem.offsetHeight;
 
-            // 1. Calculate new potential position based on current velocity
-            let newX = state.x + state.dx;
-            let newY = state.y + state.dy;
+            // 1. 計算新位置
+            state.x += state.dx;
+            state.y += state.dy;
 
-            // 2. Boundary Collision Detection and Bounce Logic
-            let bounced = false; // Flag to avoid double-perturbation on bounce frames
-            // Left boundary collision
-            if (newX < 0) {
-                newX = 0; // Clamp position to edge
-                state.dx = Math.abs(state.dx) * (0.8 + Math.random() * 0.4); // Reverse X velocity + slight random factor
-                bounced = true;
+            // 2. 邊界檢測與反彈
+            // 左邊界
+            if (state.x < 0) {
+                state.x = 0;
+                state.dx = -state.dx * (0.8 + Math.random() * 0.4); // 反彈並加一點隨機性
             }
-            // Right boundary collision
-            else if (newX + elemWidth > containerWidth) {
-                newX = containerWidth - elemWidth; // Clamp position to edge
-                state.dx = -Math.abs(state.dx) * (0.8 + Math.random() * 0.4); // Reverse X velocity + slight random factor
-                bounced = true;
+            // 右邊界
+            if (state.x + elemWidth > containerWidth) {
+                state.x = containerWidth - elemWidth;
+                state.dx = -state.dx * (0.8 + Math.random() * 0.4);
             }
-            // Top boundary collision
-            if (newY < 0) {
-                newY = 0; // Clamp position to edge
-                state.dy = Math.abs(state.dy) * (0.8 + Math.random() * 0.4); // Reverse Y velocity + slight random factor
-                bounced = true;
+            // 上邊界
+            if (state.y < 0) {
+                state.y = 0;
+                state.dy = -state.dy * (0.8 + Math.random() * 0.4);
             }
-            // Bottom boundary collision
-            else if (newY + elemHeight > containerHeight) {
-                newY = containerHeight - elemHeight; // Clamp position to edge
-                state.dy = -Math.abs(state.dy) * (0.8 + Math.random() * 0.4); // Reverse Y velocity + slight random factor
-                bounced = true;
+            // 下邊界
+            if (state.y + elemHeight > containerHeight) {
+                state.y = containerHeight - elemHeight;
+                state.dy = -state.dy * (0.8 + Math.random() * 0.4);
             }
 
-            // Update state position
-            state.x = newX;
-            state.y = newY;
+             // 隨機微擾速度，避免直線運動
+             state.dx += (Math.random() - 0.5) * 0.1;
+             state.dy += (Math.random() - 0.5) * 0.1;
+             // 限制最大速度 (可選)
+             const maxSpeed = moveSpeed * 2;
+             state.dx = Math.max(-maxSpeed, Math.min(maxSpeed, state.dx));
+             state.dy = Math.max(-maxSpeed, Math.min(maxSpeed, state.dy));
 
-            // 3. Add slight random perturbation to velocity for non-linear movement
-            // Apply only if not bouncing in this frame to prevent excessive jitter at edges
-            if (!bounced) {
-               state.dx += (Math.random() - 0.5) * 0.1; // Small random change in dx
-               state.dy += (Math.random() - 0.5) * 0.1; // Small random change in dy
-            }
 
-            // 4. Optional: Limit maximum speed to prevent words from moving too fast
-            const maxSpeed = moveSpeed * 2; // Define a maximum speed
-            state.dx = Math.max(-maxSpeed, Math.min(maxSpeed, state.dx));
-            state.dy = Math.max(-maxSpeed, Math.min(maxSpeed, state.dy));
-
-            // 5. Apply the updated position to the actual DOM element's style
+            // 3. 應用新位置
             elem.style.left = state.x + 'px';
             elem.style.top = state.y + 'px';
-        }); // End of wordStates.forEach
+        });
 
-        // 6. Request the next animation frame to continue the loop
+        // 4. 請求下一幀
         animationFrameId = requestAnimationFrame(animateWords);
-    } // End of animateWords function
+    }
 
-}); // End of DOMContentLoaded listener
+}); // End of DOMContentLoaded
