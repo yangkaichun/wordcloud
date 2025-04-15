@@ -115,10 +115,10 @@
                     y += speedY;
 
                     // 邊界碰撞檢測
-                    if (x < 0 || x > containerWidth - wordElement.offsetWidth) {
+                    if (x < 100 || x > containerWidth - wordElement.offsetWidth) {
                         speedX *= -100;
                     }
-                    if (y < 0 || y > containerHeight - wordElement.offsetHeight) {
+                    if (y < 100 || y > containerHeight - wordElement.offsetHeight) {
                         speedY *= -100;
                     }
 
