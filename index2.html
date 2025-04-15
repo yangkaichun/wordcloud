@@ -8,8 +8,8 @@
         }
         #wordCloudContainer {
             width: 100%; /* 或 80%，根據您的需求 */
-            height: 650px; /* 或 90%，根據您的需求 */
-            border: 0px solid #ccc;
+            height: 400px; /* 或 90%，根據您的需求 */
+            border: 1px solid #ccc;
             position: relative;
             overflow: hidden;
             background-color: #fff; /* 白色 */
@@ -28,61 +28,61 @@
     </style>
 </head>
 <body>
-    <input type="file" id="excelFile" accept=".xlsx, .xls">
-    <button id="generateButton" disabled>產生文字雲</button>
+    <button id="generateButton">產生文字雲</button>
     <div id="wordCloudContainer"></div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jieba.js/0.2.2/jieba.min.js"></script>
     <script>
-        const fileInput = document.getElementById('excelFile');
         const generateButton = document.getElementById('generateButton');
         const wordCloudContainer = document.getElementById('wordCloudContainer');
         let excelData = [];
 
-        fileInput.addEventListener('change', (event) => {
-            const file = event.target.files[0];
-            if (file) {
-                const reader = new FileReader();
-                reader.onload = (e) => {
-                    const data = new Uint8Array(e.target.result);
-                    const workbook = XLSX.read(data, { type: 'array' });
-                    const sheetName = workbook.SheetNames[0];
-                    const worksheet = workbook.Sheets[sheetName];
-                    const range = XLSX.utils.decode_range(worksheet['!ref']);
-                    excelData = [];
-                    for (let rowNum = range.s.r; rowNum <= range.e.r; rowNum++) {
-                        const cellAddress = XLSX.utils.encode_cell({ r: rowNum, c: 0 });
-                        const cell = worksheet[cellAddress];
-                        if (cell && cell.v) {
-                            excelData.push(cell.v);
-                        }
-                    }
-                    if (excelData.length > 0) {
-                        generateButton.disabled = false;
-                    } else {
-                        generateButton.disabled = true;
-                        alert("Excel檔案的第一欄沒有內容。");
-                    }
-                };
-                reader.readAsArrayBuffer(file);
-            } else {
-                generateButton.disabled = true;
+        window.onload = () => {
+            loadDefaultExcelFile('demo.xlsx');
+        };
+
+        async function loadDefaultExcelFile(filename) {
+            try {
+                const response = await fetch(filename);
+                if (!response.ok) {
+                    throw new Error(`無法載入檔案: ${response.status}`);
+                }
+                const arrayBuffer = await response.arrayBuffer();
+                const data = new Uint8Array(arrayBuffer);
+                const workbook = XLSX.read(data, { type: 'array' });
+                const sheetName = workbook.SheetNames[0];
+                const worksheet = workbook.Sheets[sheetName];
+                const range = XLSX.utils.decode_range(worksheet['!ref']);
                 excelData = [];
+                for (let rowNum = range.s.r; rowNum <= range.e.r; rowNum++) {
+                    const cellAddress = XLSX.utils.encode_cell({ r: rowNum, c: 0 });
+                    const cell = worksheet[cellAddress];
+                    if (cell && cell.v) {
+                        excelData.push(cell.v);
+                    }
+                }
+                if (excelData.length > 0) {
+                    generateButton.disabled = false; // 啟用按鈕 (雖然現在是自動產生)
+                    generateButton.click(); // 自動觸發產生文字雲
+                } else {
+                    alert("預設 Excel 檔案的第一欄沒有內容。");
+                }
+            } catch (error) {
+                console.error("載入預設 Excel 檔案時發生錯誤:", error);
+                alert(`載入預設 Excel 檔案時發生錯誤，請確認 ${filename} 檔案存在於相同路徑。`);
             }
-        });
+        }
 
         generateButton.addEventListener('click', () => {
             wordCloudContainer.innerHTML = ''; // 清空之前的文字雲
-            const text = excelData.join(' ');
             const words = {};
-            const jiebaResult = jieba.cut(text, true); // 使用精確模式斷詞
-
-            for (const word of jiebaResult) {
-                if (word.trim().length > 1) { // 排除單字元的詞
+            excelData.forEach(text => {
+                // 簡單的詞彙判斷
+                const cleanedText = text.replace(/[^\u4e00-\u9fa5a-zA-Z0-9\s]/g, '');
+                cleanedText.split(/\s+/).filter(word => word.length > 1).forEach(word => {
                     words[word] = (words[word] || 0) + 1;
-                }
-            }
+                });
+            });
 
             const wordList = Object.entries(words).map(([text, count]) => ({ text, count }));
 
