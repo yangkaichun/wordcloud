@@ -14,7 +14,8 @@ document.addEventListener('DOMContentLoaded', () => {
     let animationFrameId = null; // 儲存 requestAnimationFrame 的 ID
 
     // --- 按鈕 1: 選擇檔案 (不變) ---
-    selectFileBtn.addEventListener('click', () => {
+   
+        selectFileBtn.addEventListener('click', () => {
         excelFileInput.click();
     });
 
