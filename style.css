@@ -50,11 +50,13 @@ button:disabled {
     margin-top: 20px;
     position: relative; /* WordCloud2 可能需要相對定位 */
     box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    display: flex; /* 可選：用於垂直置中提示文字 */
-    justify-content: center; /* 可選 */
-    align-items: center; /* 可選 */
-    color: #aaa; /* 可選：提示文字顏色 */
-    font-size: 1.2em; /* 可選 */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    color: #aaa;
+    font-size: 1.2em;
+    /* ***** 新增的樣式 ***** */
+    overflow: hidden; /* <--- 新增：強制隱藏任何可能溢出的內容 */
 }
 
 /* 初始狀態下，可以顯示一些提示文字 */
