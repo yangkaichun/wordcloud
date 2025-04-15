@@ -13,6 +13,7 @@
             position: relative;
             overflow: hidden;
             background-color: #e0f2f7; /* 淺藍色 */
+            border-radius:10; /* 改橢圓形*/
         }
         .word {
             position: absolute;
@@ -115,10 +116,10 @@
 
                     // 邊界碰撞檢測
                     if (x < 0 || x > containerWidth - wordElement.offsetWidth) {
-                        speedX *= -1;
+                        speedX *= -100;
                     }
                     if (y < 0 || y > containerHeight - wordElement.offsetHeight) {
-                        speedY *= -1;
+                        speedY *= -100;
                     }
 
                     wordElement.style.left = `${x}px`;
