@@ -6,25 +6,35 @@ document.addEventListener('DOMContentLoaded', () => {
     const statusDiv = document.getElementById('status');
 
     let selectedFile = null;
-    let wordData = []; // 用於儲存從 Excel 提取的文字列表
+    let wordData = [];
 
-    // --- 按鈕 1: 選擇檔案 ---
+    // --- 新增：動畫相關的全域變數 ---
+    let wordSpans = []; // 儲存文字的 <span> 元素
+    let wordStates = []; // 儲存每個文字的動畫狀態 {element, x, y, dx, dy}
+    let animationFrameId = null; // 儲存 requestAnimationFrame 的 ID
+
+    // --- 按鈕 1: 選擇檔案 (不變) ---
     selectFileBtn.addEventListener('click', () => {
-        excelFileInput.click(); // 觸發隱藏的 file input
+        excelFileInput.click();
     });
 
     // --- 檔案輸入框變更事件 ---
     excelFileInput.addEventListener('change', (event) => {
+        // --- 新增：停止當前的動畫 ---
+        if (animationFrameId) {
+            cancelAnimationFrame(animationFrameId);
+            animationFrameId = null;
+        }
+        wordStates = []; // 清空舊狀態
+
         const file = event.target.files[0];
         if (file) {
             selectedFile = file;
             statusDiv.textContent = `已選擇檔案： ${file.name}`;
-            generateCloudBtn.disabled = false; // 啟用產生按鈕
-            // 清除舊的文字雲和資料
+            generateCloudBtn.disabled = false;
             wordCloudContainer.innerHTML = '';
             wordCloudContainer.classList.remove('has-cloud');
             wordData = [];
-            // 重置 file input 的值，以便可以重新選擇同一個檔案
             excelFileInput.value = '';
         } else {
             statusDiv.textContent = '未選擇任何檔案。';
@@ -40,8 +50,15 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
+        // --- 新增：停止當前的動畫 ---
+        if (animationFrameId) {
+            cancelAnimationFrame(animationFrameId);
+            animationFrameId = null;
+        }
+        wordStates = []; // 清空舊狀態
+
         statusDiv.textContent = '正在讀取並處理檔案...';
-        generateCloudBtn.disabled = true; // 防止重複點擊
+        generateCloudBtn.disabled = true;
 
         const reader = new FileReader();
 
@@ -49,104 +66,70 @@ document.addEventListener('DOMContentLoaded', () => {
             try {
                 const data = new Uint8Array(e.target.result);
                 const workbook = XLSX.read(data, { type: 'array' });
-
-                // 假設我們要讀取第一個工作表
                 const firstSheetName = workbook.SheetNames[0];
-                if (!firstSheetName) {
-                    throw new Error("Excel 檔案中找不到工作表。");
-                }
+                if (!firstSheetName) throw new Error("Excel 檔案中找不到工作表。");
                 const worksheet = workbook.Sheets[firstSheetName];
-
-                // 將工作表轉換為 JSON 陣列 (每個元素是一列，header: 1 表示將每行轉為陣列)
-                // range: 0 表示讀取第一欄 (A欄)
                 const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, range: 0 });
+                wordData = jsonData.slice(1).map(row => row[0]).filter(text => text !== null && text !== undefined && String(text).trim() !== '').map(text => String(text).trim());
 
-                // 提取第一欄的所有文字 (跳過可能的標題行，這裡假設第一行是標題，所以從索引 1 開始)
-                wordData = jsonData
-                    .slice(1) // 如果沒有標題行，可以移除 .slice(1)
-                    .map(row => row[0]) // 取每列的第一個元素 (A欄)
-                    .filter(text => text !== null && text !== undefined && String(text).trim() !== '') // 過濾空值或純空白
-                    .map(text => String(text).trim()); // 轉換為字串並去除前後空白
-
-                if (wordData.length === 0) {
-                    throw new Error("選擇的 Excel 檔案第一欄沒有有效的文字內容。");
-                }
+                if (wordData.length === 0) throw new Error("選擇的 Excel 檔案第一欄沒有有效的文字內容。");
 
                 statusDiv.textContent = '正在產生文字雲...';
 
-                // 1. 計算詞頻
                 const wordFrequencies = {};
                 wordData.forEach(text => {
-                    // 簡單的分詞 (可以根據需要使用更複雜的分詞庫)
-                    // 這裡僅以空格分隔，並轉為小寫以統一計算
                     const words = text.toLowerCase().split(/\s+/);
                     words.forEach(word => {
-                        // 移除基本標點符號 (可擴充)
                         const cleanWord = word.replace(/[.,!?;:()"']/g, '');
-                        if (cleanWord) {
-                            wordFrequencies[cleanWord] = (wordFrequencies[cleanWord] || 0) + 1;
-                        }
+                        if (cleanWord) wordFrequencies[cleanWord] = (wordFrequencies[cleanWord] || 0) + 1;
                     });
                 });
-
-                // 2. 將詞頻轉換為 WordCloud2.js 需要的格式 [ [word, frequency], ... ]
                 const listData = Object.entries(wordFrequencies).map(([word, count]) => [word, count]);
 
-                // 3. 清除舊的文字雲並產生新的
-                wordCloudContainer.innerHTML = ''; // 清空容器
-                wordCloudContainer.classList.add('has-cloud'); // 標記已有雲圖 (用於CSS隱藏提示)
+                wordCloudContainer.innerHTML = '';
+                wordCloudContainer.classList.add('has-cloud');
 
-                // 4. 設定 WordCloud2 選項並繪製
-const options = {
-            list: listData,
-            gridSize: Math.round(16 * wordCloudContainer.offsetWidth / 1024),
+                const options = {
+                    list: listData,
+                    gridSize: Math.round(16 * wordCloudContainer.offsetWidth / 1024),
+                    weightFactor: function (size) {
+                        const containerHeight = wordCloudContainer.offsetHeight;
+                        const containerWidth = wordCloudContainer.offsetWidth;
+                        let calculatedSize = Math.pow(size, 0.9) * (containerWidth / 1024) * 10;
+                        const maxSize = Math.min(containerHeight / 3.5, containerWidth / 3);
+                        return Math.min(calculatedSize, maxSize);
+                    },
+                    fontFamily: 'Arial, sans-serif',
+                    color: 'random-dark',
+                    backgroundColor: '#ffffff',
+                    rotateRatio: 0.5,
+                    minSize: 5,
+                    shuffle: true,
+                    drawOutOfBound: false,
+                    // *** 重要：WordCloud2 需要能回調 ***
+                    // 我們使用 'hover' 事件來觸發，雖然有點取巧，
+                    // 但可以確保元素已渲染。或者設置一個短延遲。
+                    // 一個更可靠的方式是監聽容器的 DOM 變化，但較複雜。
+                    // 這裡我們在 WordCloud 調用後直接啟動。
+                };
 
-            // *** 修改 weightFactor ***
-            weightFactor: function (size) {
-                const containerHeight = wordCloudContainer.offsetHeight;
-                const containerWidth = wordCloudContainer.offsetWidth;
-                // 基礎大小計算 (可以保持或調整)
-                // 我們乘以一個較小的基礎比例因子，讓大小對頻率的反應不至於太劇烈
-                let calculatedSize = Math.pow(size, 0.9) * (containerWidth / 1024) * 10; // 降低指數和基礎比例因子
-
-                // *** 設定最大字體大小上限 ***
-                // 讓最大字體不超過容器高度的 1/3 或 1/4 是一個常見做法
-                // 同時也考慮容器寬度，取較小者的一部分作為限制
-                const maxSize = Math.min(containerHeight / 3.5, containerWidth / 3); // 例如，不超過高度的1/3.5或寬度的1/3
-
-                // 確保計算出的尺寸不超過最大限制，同時也不會小於 minSize
-                // Math.min 用於確保不超過 maxSize
-                // minSize 會由 WordCloud 內部處理，我們主要關心上限
-                return Math.min(calculatedSize, maxSize);
-            },
-
-            fontFamily: 'Arial, sans-serif',
-            color: 'random-dark',
-            backgroundColor: '#ffffff',
-            rotateRatio: 0.5, // 保持旋轉
-            minSize: 5,       // 最小字體大小
-            shuffle: true,    // 保持隨機繪製
-
-            // ***** 新增的選項 *****
-            drawOutOfBound: false, // <--- 新增：禁止繪製超出邊界的文字
-
-            // 其他可能的選項保持不變或根據需要添加
-            // shape: 'circle',
-            // ellipticity: 0.65,
-        };
-
+                // --- 執行 WordCloud ---
                 WordCloud(wordCloudContainer, options);
 
-                statusDiv.textContent = '文字雲產生完成！';
+                statusDiv.textContent = '文字雲產生完成！正在啟動動畫...';
+
+                // --- 新增：啟動文字移動動畫 ---
+                initializeAndStartAnimation();
+
 
             } catch (error) {
                 console.error("處理 Excel 或產生文字雲時發生錯誤:", error);
                 statusDiv.textContent = `發生錯誤： ${error.message}`;
                 alert(`處理檔案時發生錯誤： ${error.message}`);
-                wordCloudContainer.innerHTML = '產生失敗'; // 顯示錯誤訊息
+                wordCloudContainer.innerHTML = '產生失敗';
                 wordCloudContainer.classList.remove('has-cloud');
             } finally {
-                generateCloudBtn.disabled = false; // 處理完畢後重新啟用按鈕
+                generateCloudBtn.disabled = false;
             }
         };
 
@@ -154,10 +137,101 @@ const options = {
             console.error("讀取檔案時發生錯誤:", e);
             statusDiv.textContent = '讀取檔案失敗！';
             alert('讀取檔案失敗！');
-            generateCloudBtn.disabled = false; // 啟用按鈕
+            generateCloudBtn.disabled = false;
         };
 
-        // 以 ArrayBuffer 格式讀取檔案，這是 SheetJS 建議的方式
         reader.readAsArrayBuffer(selectedFile);
     });
-});
+
+    // --- 新增：初始化並啟動動畫的函數 ---
+    function initializeAndStartAnimation() {
+        wordSpans = wordCloudContainer.querySelectorAll('span');
+        wordStates = []; // 重置狀態
+
+        if (wordSpans.length === 0) {
+            console.warn("找不到文字元素來執行動畫。");
+            return;
+        }
+
+        const moveSpeed = 0.5; // 控制基礎移動速度，可調整
+
+        wordSpans.forEach(span => {
+            // 確保 span 有 position: absolute，WordCloud2 通常會設定
+            if (window.getComputedStyle(span).position !== 'absolute') {
+                 span.style.position = 'relative'; // 或 absolute，依賴 WordCloud 輸出
+                 // 如果 WordCloud2 未設定 absolute，此動畫邏輯需大改
+                 console.warn("Word span is not absolutely positioned, animation might not work as expected.");
+            }
+            wordStates.push({
+                element: span,
+                x: parseFloat(span.style.left) || 0, // 從樣式讀取初始位置
+                y: parseFloat(span.style.top) || 0,
+                dx: (Math.random() - 0.5) * 2 * moveSpeed, // 隨機初始速度 (-moveSpeed to +moveSpeed)
+                dy: (Math.random() - 0.5) * 2 * moveSpeed
+            });
+        });
+
+        // 清除可能殘留的舊幀
+        if (animationFrameId) {
+            cancelAnimationFrame(animationFrameId);
+        }
+        // 啟動動畫循環
+        animateWords();
+        statusDiv.textContent = '文字雲產生完成！動畫已啟動。';
+    }
+
+    // --- 新增：動畫循環函數 ---
+    function animateWords() {
+        const containerWidth = wordCloudContainer.offsetWidth;
+        const containerHeight = wordCloudContainer.offsetHeight;
+
+        wordStates.forEach(state => {
+            const elem = state.element;
+            const elemWidth = elem.offsetWidth;
+            const elemHeight = elem.offsetHeight;
+
+            // 1. 計算新位置
+            state.x += state.dx;
+            state.y += state.dy;
+
+            // 2. 邊界檢測與反彈
+            // 左邊界
+            if (state.x < 0) {
+                state.x = 0;
+                state.dx = -state.dx * (0.8 + Math.random() * 0.4); // 反彈並加一點隨機性
+            }
+            // 右邊界
+            if (state.x + elemWidth > containerWidth) {
+                state.x = containerWidth - elemWidth;
+                state.dx = -state.dx * (0.8 + Math.random() * 0.4);
+            }
+            // 上邊界
+            if (state.y < 0) {
+                state.y = 0;
+                state.dy = -state.dy * (0.8 + Math.random() * 0.4);
+            }
+            // 下邊界
+            if (state.y + elemHeight > containerHeight) {
+                state.y = containerHeight - elemHeight;
+                state.dy = -state.dy * (0.8 + Math.random() * 0.4);
+            }
+
+             // 隨機微擾速度，避免直線運動
+             state.dx += (Math.random() - 0.5) * 0.1;
+             state.dy += (Math.random() - 0.5) * 0.1;
+             // 限制最大速度 (可選)
+             const maxSpeed = moveSpeed * 2;
+             state.dx = Math.max(-maxSpeed, Math.min(maxSpeed, state.dx));
+             state.dy = Math.max(-maxSpeed, Math.min(maxSpeed, state.dy));
+
+
+            // 3. 應用新位置
+            elem.style.left = state.x + 'px';
+            elem.style.top = state.y + 'px';
+        });
+
+        // 4. 請求下一幀
+        animationFrameId = requestAnimationFrame(animateWords);
+    }
+
+}); // End of DOMContentLoaded
