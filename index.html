@@ -1,21 +1,21 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>動態文字雲產生器</title>
+    <title>國衛院AI小官家 動態文字雲產生器</title>
     <style>
         body {
             font-family: sans-serif;
         }
         #wordCloudContainer {
             width: 100%;
-            height: 400px; /* 可以調整高度 */
-            border: 1px solid #ccc;
+            height: 80%; /* 可以調整高度 */
+            border: 10px solid #ccc;
             position: relative;
             overflow: hidden;
+            background-color: #e0f2f7; /* 淺藍色 */
         }
         .word {
             position: absolute;
-            font-size: 16px;
             cursor: default;
         }
     </style>
@@ -26,6 +26,7 @@
     <div id="wordCloudContainer"></div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jieba.js/0.2.2/jieba.min.js"></script>
     <script>
         const fileInput = document.getElementById('excelFile');
         const generateButton = document.getElementById('generateButton');
@@ -66,29 +67,40 @@
 
         generateButton.addEventListener('click', () => {
             wordCloudContainer.innerHTML = ''; // 清空之前的文字雲
+            const text = excelData.join(' ');
             const words = {};
-            excelData.forEach(text => {
-                // 簡單的詞彙判斷，可以根據需求擴展
-                const cleanedText = text.replace(/[^\u4e00-\u9fa5a-zA-Z0-9\s]/g, '');
-                cleanedText.split(/\s+/).filter(word => word.length > 1).forEach(word => {
+            const jiebaResult = jieba.cut(text, true); // 使用精確模式斷詞
+
+            for (const word of jiebaResult) {
+                if (word.trim().length > 1) { // 排除單字元的詞
                     words[word] = (words[word] || 0) + 1;
-                });
-            });
+                }
+            }
 
             const wordList = Object.entries(words).map(([text, count]) => ({ text, count }));
 
             const containerWidth = wordCloudContainer.offsetWidth;
             const containerHeight = wordCloudContainer.offsetHeight;
 
+            function getRandomColor() {
+                const letters = '0123456789ABCDEF';
+                let color = '#';
+                for (let i = 0; i < 6; i++) {
+                    color += letters[Math.floor(Math.random() * 16)];
+                }
+                return color;
+            }
+
             function createWordElement(wordObj) {
                 const wordElement = document.createElement('span');
                 wordElement.classList.add('word');
                 wordElement.textContent = wordObj.text;
-                wordElement.style.fontSize = `${12 + Math.log2(wordObj.count) * 3}px`; // 根據詞頻調整大小
+                wordElement.style.fontSize = `${12 + Math.log2(wordObj.count) * 5}px`; // 根據詞頻調整大小 (調整乘數以改變大小比例)
+                wordElement.style.color = getRandomColor(); // 設定隨機顏色
 
                 // 初始位置
-                wordElement.style.left = `${Math.random() * containerWidth}px`;
-                wordElement.style.top = `${Math.random() * containerHeight}px`;
+                wordElement.style.left = `${Math.random() * (containerWidth - wordElement.offsetWidth)}px`;
+                wordElement.style.top = `${Math.random() * (containerHeight - wordElement.offsetHeight)}px`;
 
                 const speedX = (Math.random() - 0.5) * 2; // 隨機水平速度
                 const speedY = (Math.random() - 0.5) * 2; // 隨機垂直速度
