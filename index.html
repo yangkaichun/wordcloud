@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>動態文字雲產生器</title>
+    <title>國衛院AI文字雲產生器</title>
     <style>
         body {
             font-family: sans-serif;
@@ -115,11 +115,11 @@
                     y += speedY;
 
                     // 邊界碰撞檢測
-                    if (x < 100 || x > containerWidth - wordElement.offsetWidth) {
-                        speedX *= -100;
+                    if (x < 1 || x > containerWidth - wordElement.offsetWidth) {
+                        speedX *= -50;
                     }
-                    if (y < 100 || y > containerHeight - wordElement.offsetHeight) {
-                        speedY *= -100;
+                    if (y < 1 || y > containerHeight - wordElement.offsetHeight) {
+                        speedY *= -50;
                     }
 
                     wordElement.style.left = `${x}px`;
