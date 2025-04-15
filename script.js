@@ -43,77 +43,113 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // --- 按鈕 2: 產生文字雲 ---
-    generateCloudBtn.addEventListener('click', () => {
-        if (!selectedFile) {
-            alert('請先選擇一個 Excel 檔案！');
-            return;
-        }
+  // --- 按鈕 2: 產生文字雲 ---
+generateCloudBtn.addEventListener('click', () => {
+    // ... (停止動畫, 檢查 selectedFile 等不變) ...
 
-        // --- 新增：停止當前的動畫 ---
-        if (animationFrameId) {
-            cancelAnimationFrame(animationFrameId);
-            animationFrameId = null;
-        }
-        wordStates = []; // 清空舊狀態
+    reader.onload = function(e) {
+        try {
+            // ... (讀取 Excel, 獲取 wordData 的代碼不變) ...
 
-        statusDiv.textContent = '正在讀取並處理檔案...';
-        generateCloudBtn.disabled = true;
+            if (wordData.length === 0) throw new Error("選擇的 Excel 檔案第一欄沒有有效的文字內容。");
 
-        const reader = new FileReader();
+            // --- *** 修改：詞頻計算邏輯 *** ---
+            statusDiv.textContent = '正在分析文字並計算詞頻...';
+            const wordFrequencies = {};
 
-        reader.onload = function(e) {
-            try {
-                const data = new Uint8Array(e.target.result);
-                const workbook = XLSX.read(data, { type: 'array' });
-                const firstSheetName = workbook.SheetNames[0];
-                if (!firstSheetName) throw new Error("Excel 檔案中找不到工作表。");
-                const worksheet = workbook.Sheets[firstSheetName];
-                const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, range: 0 });
-                wordData = jsonData.slice(1).map(row => row[0]).filter(text => text !== null && text !== undefined && String(text).trim() !== '').map(text => String(text).trim());
+            // 檢查 jieba 是否已載入
+            if (typeof jieba === 'undefined') {
+                throw new Error("中文斷詞函式庫 (jieba-js) 未能成功載入！請檢查網路連線或 CDN 連結。");
+            }
 
-                if (wordData.length === 0) throw new Error("選擇的 Excel 檔案第一欄沒有有效的文字內容。");
+            // 定義中文停用詞 (可根據需要擴充)
+            const stopWords = new Set([
+                '的', '了', '是', '我', '你', '他', '她', '它', '們', '一個', '也', '在', '有', '和', '就', '不', '人', '都', '而', '及',
+                '與', '或', '這個', '那個', '我們', '你們', '他們', '她們', '它們', '之', '其', '或', '等', '於', '以', '及', '因', '為',
+                '從', '到', '由', '向', '於', '自', '至', '諸', '乎', '哉', '也', '但', '並', '且', '所', '把', '被', '將', '使', '得',
+                 '對', '來說', '對於', '關於', '的話', '然而', '因此', '所以', '因為', '由於', '此外', '另外', '還有', '以及', '例如',
+                 '!', '?', '.', ',', ';', ':', '"', "'", '(', ')', '[', ']', '{', '}', '、', '。', '，', '！', '？', '；', '：', '“', '”',
+                 '‘', '’', '（', '）', '【', '】', '《', '》', '「', '」', '『', '』', ' ', '\t', '\n', '\r' // 也包含一些符號和空白
+            ]);
 
-                statusDiv.textContent = '正在產生文字雲...';
+            // 定義更全面的標點符號和空白的正規表示式
+            const punctuationRegex = /[\s\.。,，!！?？;；:：、\'\"“”‘’「」『』（）《》〈〉【】\[\]{}~～@#\$%\^&\*()_\+\-=|\\`\d]+/g; // 加入了數字 \d
 
-                const wordFrequencies = {};
-                wordData.forEach(text => {
-                    const words = text.toLowerCase().split(/\s+/);
-                    words.forEach(word => {
-                        const cleanWord = word.replace(/[.,!?;:()"']/g, '');
-                        if (cleanWord) wordFrequencies[cleanWord] = (wordFrequencies[cleanWord] || 0) + 1;
-                    });
+            wordData.forEach(text => {
+                // 使用 jieba.cut 進行斷詞
+                const segmentedWords = jieba.cut(String(text)); // 確保輸入是字串
+
+                segmentedWords.forEach(word => {
+                    // 去除標點符號和數字
+                    const cleanWord = word.replace(punctuationRegex, '');
+
+                    // 過濾掉空字串、單個字元（可選，有時需要保留單字詞）以及停用詞
+                    if (cleanWord && cleanWord.length > 1 && !stopWords.has(cleanWord)) {
+                        // 直接使用詞彙本身作為 key，中文通常不需轉小寫
+                        wordFrequencies[cleanWord] = (wordFrequencies[cleanWord] || 0) + 1;
+                    }
                 });
-                const listData = Object.entries(wordFrequencies).map(([word, count]) => [word, count]);
+            });
+            // --- *** 詞頻計算邏輯修改結束 *** ---
 
-                wordCloudContainer.innerHTML = '';
-                wordCloudContainer.classList.add('has-cloud');
 
-                const options = {
-                    list: listData,
-                    gridSize: Math.round(16 * wordCloudContainer.offsetWidth / 1024),
-                    weightFactor: function (size) {
-                        const containerHeight = wordCloudContainer.offsetHeight;
-                        const containerWidth = wordCloudContainer.offsetWidth;
-                        let calculatedSize = Math.pow(size, 0.9) * (containerWidth / 1024) * 10;
-                        const maxSize = Math.min(containerHeight / 3.5, containerWidth / 3);
-                        return Math.min(calculatedSize, maxSize);
-                    },
-                    fontFamily: 'Arial, sans-serif',
-                    color: 'random-dark',
-                    backgroundColor: '#ffffff',
-                    rotateRatio: 0.5,
-                    minSize: 5,
-                    shuffle: true,
-                    drawOutOfBound: false,
-                    // *** 重要：WordCloud2 需要能回調 ***
-                    // 我們使用 'hover' 事件來觸發，雖然有點取巧，
-                    // 但可以確保元素已渲染。或者設置一個短延遲。
-                    // 一個更可靠的方式是監聽容器的 DOM 變化，但較複雜。
-                    // 這裡我們在 WordCloud 調用後直接啟動。
-                };
+            const listData = Object.entries(wordFrequencies).map(([word, count]) => [word, count]);
 
-                // --- 執行 WordCloud ---
+            if (listData.length === 0) {
+                 throw new Error("經過斷詞與過濾後，沒有有效的詞彙可產生文字雲。");
+            }
+
+            wordCloudContainer.innerHTML = '';
+            wordCloudContainer.classList.add('has-cloud');
+            statusDiv.textContent = '正在產生文字雲...';
+
+            // --- *** 修改：WordCloud2 選項中的字體 *** ---
+            const options = {
+                list: listData,
+                gridSize: Math.round(16 * wordCloudContainer.offsetWidth / 1024),
+                weightFactor: function (size) {
+                    const containerHeight = wordCloudContainer.offsetHeight;
+                    const containerWidth = wordCloudContainer.offsetWidth;
+                    let calculatedSize = Math.pow(size, 0.9) * (containerWidth / 1024) * 10;
+                    const maxSize = Math.min(containerHeight / 3.5, containerWidth / 3);
+                    return Math.min(calculatedSize, maxSize);
+                },
+                // *** 修改字體設定 ***
+                fontFamily: '"Microsoft JhengHei", "PingFang TC", "Noto Sans TC", sans-serif', // 優先使用常見的繁中字體
+                color: 'random-dark',
+                backgroundColor: '#ffffff',
+                rotateRatio: 0.5,
+                minSize: 8, // 中文字體建議最小尺寸稍大一點
+                shuffle: true,
+                drawOutOfBound: false,
+            };
+            // --- *** 字體修改結束 *** ---
+
+            WordCloud(wordCloudContainer, options);
+            statusDiv.textContent = '文字雲產生完成！正在啟動動畫...';
+            initializeAndStartAnimation(); // 保持動畫啟動不變
+
+        } catch (error) {
+            // ... (錯誤處理不變) ...
+             console.error("處理過程發生錯誤:", error);
+             statusDiv.textContent = `發生錯誤： ${error.message}`;
+             alert(`處理檔案時發生錯誤： ${error.message}`);
+             // 確保動畫停止
+             if (animationFrameId) {
+                 cancelAnimationFrame(animationFrameId);
+                 animationFrameId = null;
+             }
+             wordStates = [];
+             wordCloudContainer.innerHTML = '產生失敗';
+             wordCloudContainer.classList.remove('has-cloud');
+        } finally {
+            generateCloudBtn.disabled = false;
+        }
+    };
+
+    // ... (reader.onerror, initializeAndStartAnimation, animateWords 函數保持不變) ...
+     reader.readAsArrayBuffer(selectedFile);
+});
                 WordCloud(wordCloudContainer, options);
 
                 statusDiv.textContent = '文字雲產生完成！正在啟動動畫...';
