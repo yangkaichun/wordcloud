@@ -107,8 +107,8 @@
                 wordElement.style.left = `${Math.random() * (containerWidth - wordElement.offsetWidth)}px`;
                 wordElement.style.top = `${Math.random() * (containerHeight - wordElement.offsetHeight)}px`;
 
-                const speedX = (Math.random() - 0.5) * 2; // 隨機水平速度
-                const speedY = (Math.random() - 0.5) * 2; // 隨機垂直速度
+                const speedX = (Math.random() - 0.5) * 20; // 隨機水平速度
+                const speedY = (Math.random() - 0.5) * 20; // 隨機垂直速度
 
                 function animateWord() {
                     let x = parseFloat(wordElement.style.left);
