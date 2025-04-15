@@ -220,7 +220,7 @@ document.addEventListener('DOMContentLoaded', () => {
              state.dx += (Math.random() - 0.5) * 0.1;
              state.dy += (Math.random() - 0.5) * 0.1;
              // 限制最大速度 (可選)
-             const maxSpeed = moveSpeed * 2;
+             const maxSpeed = moveSpeed * 10;
              state.dx = Math.max(-maxSpeed, Math.min(maxSpeed, state.dx));
              state.dy = Math.max(-maxSpeed, Math.min(maxSpeed, state.dy));
 
