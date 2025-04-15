@@ -1,0 +1,69 @@
+body {
+    font-family: 'Arial', sans-serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 20px;
+    background-color: #f4f4f4;
+}
+
+h1 {
+    color: #333;
+}
+
+.controls {
+    margin-bottom: 20px;
+}
+
+button {
+    padding: 10px 20px;
+    margin: 0 10px;
+    font-size: 1em;
+    cursor: pointer;
+    border: none;
+    border-radius: 5px;
+    background-color: #007bff;
+    color: white;
+    transition: background-color 0.3s ease;
+}
+
+button:hover {
+    background-color: #0056b3;
+}
+
+button:disabled {
+    background-color: #cccccc;
+    cursor: not-allowed;
+}
+
+#status {
+    margin-bottom: 20px;
+    font-style: italic;
+    color: #555;
+}
+
+#wordCloudContainer {
+    width: 80%; /* 或設定固定寬度，例如 600px */
+    height: 400px; /* 設定固定高度 */
+    border: 1px solid #ccc;
+    background-color: #fff;
+    margin-top: 20px;
+    position: relative; /* WordCloud2 可能需要相對定位 */
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    display: flex; /* 可選：用於垂直置中提示文字 */
+    justify-content: center; /* 可選 */
+    align-items: center; /* 可選 */
+    color: #aaa; /* 可選：提示文字顏色 */
+    font-size: 1.2em; /* 可選 */
+}
+
+/* 初始狀態下，可以顯示一些提示文字 */
+#wordCloudContainer::before {
+    content: '文字雲將顯示於此';
+    display: block; /* 預設顯示 */
+}
+
+/* 當文字雲產生後，隱藏提示文字 (透過 JS 控制) */
+#wordCloudContainer.has-cloud::before {
+    display: none;
+}
