@@ -1,72 +1,128 @@
 <!DOCTYPE html>
-<html lang="zh-TW">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Excel 文字雲</title>
+    <title>動態文字雲產生器</title>
     <style>
         body {
             font-family: sans-serif;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            padding: 20px;
-        }
-        .button-container {
-            margin-bottom: 20px;
-        }
-        button {
-            padding: 10px 15px;
-            font-size: 16px;
-            cursor: pointer;
-            margin: 0 10px;
         }
         #wordCloudContainer {
-            width: 600px; /* 調整文字雲容器寬度 */
-            height: 400px; /* 調整文字雲容器高度 */
+            width: 100%;
+            height: 400px; /* 可以調整高度 */
             border: 1px solid #ccc;
-            margin-top: 20px;
-            position: relative; /* Needed for wordcloud2.js positioning */
+            position: relative;
+            overflow: hidden;
         }
-        #fileNameDisplay {
-            margin-top: 10px;
-            font-style: italic;
-            color: #555;
-        }
-        /* 讓隱藏的 input 看不到 */
-        #fileInput {
-            display: none;
-        }
-        #loadingMessage {
-            display: none; /* 預設隱藏 */
-            color: blue;
-            margin-top: 10px;
+        .word {
+            position: absolute;
+            font-size: 16px;
+            cursor: default;
         }
     </style>
 </head>
 <body>
-
-    <h1>從 Excel 生成文字雲</h1>
-
-    <div class="button-container">
-        <button id="selectFileButton">1. 選擇 Excel 檔案</button>
-
-        <button id="generateCloudButton" disabled>2. 生成文字雲 (讀取第一欄)</button>
-    </div>
-
-    <input type="file" id="fileInput" accept=".xlsx, .xls">
-
-    <div id="fileNameDisplay">尚未選擇檔案</div>
-    <div id="loadingMessage">處理中，請稍候...</div>
-
-
-    <div id="wordCloudContainer">
-        </div>
+    <input type="file" id="excelFile" accept=".xlsx, .xls">
+    <button id="generateButton" disabled>產生文字雲</button>
+    <div id="wordCloudContainer"></div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/wordcloud2.js/1.1.1/wordcloud2.min.js"></script>
+    <script>
+        const fileInput = document.getElementById('excelFile');
+        const generateButton = document.getElementById('generateButton');
+        const wordCloudContainer = document.getElementById('wordCloudContainer');
+        let excelData = [];
 
-    <script src="script.js"></script>
+        fileInput.addEventListener('change', (event) => {
+            const file = event.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    const sheetName = workbook.SheetNames[0];
+                    const worksheet = workbook.Sheets[sheetName];
+                    const range = XLSX.utils.decode_range(worksheet['!ref']);
+                    excelData = [];
+                    for (let rowNum = range.s.r; rowNum <= range.e.r; rowNum++) {
+                        const cellAddress = XLSX.utils.encode_cell({ r: rowNum, c: 0 });
+                        const cell = worksheet[cellAddress];
+                        if (cell && cell.v) {
+                            excelData.push(cell.v);
+                        }
+                    }
+                    if (excelData.length > 0) {
+                        generateButton.disabled = false;
+                    } else {
+                        generateButton.disabled = true;
+                        alert("Excel檔案的第一欄沒有內容。");
+                    }
+                };
+                reader.readAsArrayBuffer(file);
+            } else {
+                generateButton.disabled = true;
+                excelData = [];
+            }
+        });
 
+        generateButton.addEventListener('click', () => {
+            wordCloudContainer.innerHTML = ''; // 清空之前的文字雲
+            const words = {};
+            excelData.forEach(text => {
+                // 簡單的詞彙判斷，可以根據需求擴展
+                const cleanedText = text.replace(/[^\u4e00-\u9fa5a-zA-Z0-9\s]/g, '');
+                cleanedText.split(/\s+/).filter(word => word.length > 1).forEach(word => {
+                    words[word] = (words[word] || 0) + 1;
+                });
+            });
+
+            const wordList = Object.entries(words).map(([text, count]) => ({ text, count }));
+
+            const containerWidth = wordCloudContainer.offsetWidth;
+            const containerHeight = wordCloudContainer.offsetHeight;
+
+            function createWordElement(wordObj) {
+                const wordElement = document.createElement('span');
+                wordElement.classList.add('word');
+                wordElement.textContent = wordObj.text;
+                wordElement.style.fontSize = `${12 + Math.log2(wordObj.count) * 3}px`; // 根據詞頻調整大小
+
+                // 初始位置
+                wordElement.style.left = `${Math.random() * containerWidth}px`;
+                wordElement.style.top = `${Math.random() * containerHeight}px`;
+
+                const speedX = (Math.random() - 0.5) * 2; // 隨機水平速度
+                const speedY = (Math.random() - 0.5) * 2; // 隨機垂直速度
+
+                function animateWord() {
+                    let x = parseFloat(wordElement.style.left);
+                    let y = parseFloat(wordElement.style.top);
+
+                    x += speedX;
+                    y += speedY;
+
+                    // 邊界碰撞檢測
+                    if (x < 0 || x > containerWidth - wordElement.offsetWidth) {
+                        speedX *= -1;
+                    }
+                    if (y < 0 || y > containerHeight - wordElement.offsetHeight) {
+                        speedY *= -1;
+                    }
+
+                    wordElement.style.left = `${x}px`;
+                    wordElement.style.top = `${y}px`;
+
+                    requestAnimationFrame(animateWord);
+                }
+
+                animateWord();
+                return wordElement;
+            }
+
+            wordList.forEach(wordObj => {
+                const wordElement = createWordElement(wordObj);
+                wordCloudContainer.appendChild(wordElement);
+            });
+        });
+    </script>
 </body>
 </html>
