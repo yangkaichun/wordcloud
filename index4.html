@@ -6,743 +6,672 @@
     <title>國家衛生研究院智慧醫療文字雲生成器</title>
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/d3@7.8.5/dist/d3.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/d3-cloud@1.2.5/build/d3.layout.cloud.min.js"></script>
     <style>
         :root {
-            --primary-color: #3b82f6;
-            --secondary-color: #10b981;
-            --accent-color: #60a5fa;
-            --bg-color: #f8fafc;
-            --text-color: #1e293b;
-            --border-color: #cbd5e1;
+            --primary-color: #3498db;
+            --secondary-color: #2ecc71;
+            --accent-color: #9b59b6;
+            --background-color: #f5f7fa;
+            --card-color: #ffffff;
+            --text-color: #2c3e50;
+            --border-color: #e2e8f0;
         }
-        
+
         body {
-            font-family: 'Microsoft JhengHei', 'PMingLiU', 'Arial', sans-serif;
-            background-color: var(--bg-color);
+            font-family: 'Microsoft YaHei', 'PingFang TC', 'Heiti TC', 'Apple LiGothic Medium', 'STHeiti', 'Source Han Sans TC', sans-serif;
+            background-color: var(--background-color);
             color: var(--text-color);
-            min-height: 100vh;
             overflow-x: hidden;
         }
-        
-        .tech-container {
-            background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
-            box-shadow: 0 0 20px rgba(148, 163, 184, 0.2);
+
+        .gradient-border {
+            position: relative;
+            border-radius: 10px;
+            padding: 5px;
+        }
+
+        .gradient-border::after {
+            content: "";
+            position: absolute;
+            top: -2px;
+            left: -2px;
+            right: -2px;
+            bottom: -2px;
+            background: linear-gradient(45deg, var(--primary-color), var(--secondary-color), var(--accent-color));
             border-radius: 12px;
-            border: 1px solid var(--border-color);
+            z-index: -1;
+            opacity: 0.7;
+        }
+
+        .tech-card {
+            background-color: var(--card-color);
+            border-radius: 12px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.08);
             position: relative;
             overflow: hidden;
         }
-        
-        .tech-container::before {
+
+        .tech-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -50%;
+            width: 200%;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, rgba(52, 152, 219, 0.5), transparent);
+            animation: techScan 4s linear infinite;
+        }
+
+        @keyframes techScan {
+            0% {
+                transform: translateY(0);
+            }
+            50% {
+                transform: translateY(100vh);
+            }
+            100% {
+                transform: translateY(0);
+            }
+        }
+
+        .btn-tech {
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            color: white;
+            border: none;
+            border-radius: 8px;
+            padding: 10px 20px;
+            font-weight: 600;
+            position: relative;
+            overflow: hidden;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(52, 152, 219, 0.3);
+            z-index: 1;
+        }
+
+        .btn-tech:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(52, 152, 219, 0.4);
+        }
+
+        .btn-tech::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+            transition: all 0.5s ease;
+            z-index: -1;
+        }
+
+        .btn-tech:hover::after {
+            left: 100%;
+        }
+
+        .cloud-container {
+            border: 2px solid rgba(52, 152, 219, 0.3);
+            border-radius: 50%/30%;
+            position: relative;
+            overflow: hidden;
+            background-color: rgba(255, 255, 255, 0.6);
+            box-shadow: inset 0 0 30px rgba(52, 152, 219, 0.1);
+        }
+
+        .cloud-container::before {
             content: '';
             position: absolute;
             top: 0;
             left: 0;
             right: 0;
-            height: 3px;
-            background: linear-gradient(90deg, var(--primary-color), var(--secondary-color), var(--accent-color));
-            z-index: 1;
-        }
-        
-        .tech-button {
-            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
-            color: white;
-            border: none;
-            padding: 0.75rem 1.5rem;
-            border-radius: 6px;
-            font-weight: 600;
-            transition: all 0.3s ease;
-            box-shadow: 0 4px 6px rgba(59, 130, 246, 0.25);
-            position: relative;
-            overflow: hidden;
-            z-index: 1;
-        }
-        
-        .tech-button::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: linear-gradient(135deg, var(--secondary-color), var(--primary-color));
-            opacity: 0;
-            transition: opacity 0.3s ease;
-            z-index: -1;
-        }
-        
-        .tech-button:hover::before {
-            opacity: 1;
-        }
-        
-        .tech-button:active {
-            transform: translateY(2px);
-            box-shadow: 0 2px 4px rgba(59, 130, 246, 0.25);
-        }
-        
-        .file-input-container {
-            position: relative;
-            overflow: hidden;
-        }
-        
-        .file-input-container input[type="file"] {
-            position: absolute;
-            top: 0;
-            left: 0;
-            opacity: 0;
-            width: 100%;
-            height: 100%;
-            cursor: pointer;
-        }
-        
-        .wordcloud-container {
-            width: 100%;
-            height: 70vh;
-            background: transparent;
-            position: relative;
-            border-radius: 50% / 30%;
-            overflow: hidden;
-            box-shadow: 0 0 15px rgba(148, 163, 184, 0.3) inset;
-            border: 1px solid var(--border-color);
-        }
-        
-        #wordCloudCanvas {
-            width: 100%;
-            height: 100%;
-            position: absolute;
-            top: 0;
-            left: 0;
-        }
-        
-        .glow-effect {
-            position: relative;
-        }
-        
-        .glow-effect::after {
-            content: '';
-            position: absolute;
-            top: -5px;
-            left: -5px;
-            right: -5px;
-            bottom: -5px;
-            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
-            filter: blur(15px);
-            opacity: 0.2;
-            z-index: -1;
-            border-radius: inherit;
-        }
-        
-        .tech-grid {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background-image: radial-gradient(var(--border-color) 1px, transparent 1px);
-            background-size: 30px 30px;
-            opacity: 0.3;
+            bottom: 0;
+            background: linear-gradient(135deg, 
+                rgba(52, 152, 219, 0.05) 0%, 
+                rgba(46, 204, 113, 0.05) 50%, 
+                rgba(155, 89, 182, 0.05) 100%);
             pointer-events: none;
         }
-        
+
+        .loading-indicator {
+            display: none;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 100;
+        }
+
+        .loading-spinner {
+            border: 4px solid rgba(52, 152, 219, 0.3);
+            border-radius: 50%;
+            border-top: 4px solid var(--primary-color);
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .logo {
+            height: 60px;
+            object-fit: contain;
+        }
+
+        .grid-bg {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image: 
+                linear-gradient(rgba(52, 152, 219, 0.05) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(52, 152, 219, 0.05) 1px, transparent 1px);
+            background-size: 20px 20px;
+            z-index: -1;
+        }
+
+        .pulse {
+            animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+
         @keyframes pulse {
-            0% {
-                opacity: 0.6;
-            }
-            50% {
+            0%, 100% {
                 opacity: 1;
             }
-            100% {
-                opacity: 0.6;
+            50% {
+                opacity: 0.7;
             }
         }
-        
-        .loading-indicator {
-            animation: pulse 1.5s infinite;
-        }
-        
-        /* Data flow animation */
-        .data-flow {
-            position: absolute;
-            width: 100%;
-            height: 2px;
-            background: linear-gradient(90deg, transparent, var(--accent-color), transparent);
-            top: 0;
-            left: -100%;
-            animation: data-flow 3s linear infinite;
-        }
-        
-        @keyframes data-flow {
-            0% {
-                left: -100%;
-            }
-            100% {
-                left: 100%;
-            }
-        }
-        
-        /* Random fonts for word cloud */
-        .word-cloud-word {
-            font-family: var(--font-family);
-        }
+
+        /* Add any other styles you need for your word cloud here */
     </style>
 </head>
-<body class="py-8 px-4 md:px-8">
-    <div class="max-w-7xl mx-auto">
-        <!-- Header with Logo -->
-        <header class="flex items-center justify-between mb-8">
-            <div class="flex items-center">
-                <img src="icon.png" alt="國家衛生研究院" class="h-12 mr-4" id="logo">
-                <div>
-                    <h1 class="text-2xl font-bold text-gray-800">國家衛生研究院</h1>
-                    <p class="text-sm text-gray-600">智慧醫療文字雲生成器</p>
+<body>
+    <div class="grid-bg"></div>
+    <div class="container mx-auto px-4 py-6">
+        <div class="tech-card p-6 mb-8">
+            <!-- Logo area - will attempt to load icon.png from the same directory -->
+            <div class="flex justify-between items-center mb-6">
+                <div class="flex items-center">
+                    <img id="logoImage" src="icon.png" alt="國家衛生研究院" class="logo mr-3" onerror="this.onerror=null; this.src='https://cdn.jsdelivr.net/gh/microsoft/fluentui-system-icons/assets/Research/SVG/ic_fluent_research_24_regular.svg'; this.style.height='40px';">
+                    <h1 class="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-500 to-green-500">國家衛生研究院智慧醫療文字雲生成器</h1>
                 </div>
             </div>
-            <div class="text-sm text-gray-500">
-                <p>文件版本: 1.0.0</p>
-                <p>更新日期: 2023-06-15</p>
+            
+            <!-- Controls -->
+            <div class="flex flex-wrap gap-4 mb-6">
+                <div class="gradient-border">
+                    <input type="file" id="fileInput" accept=".xlsx, .xls" class="hidden" />
+                    <button id="fileSelectBtn" class="btn-tech">選擇Excel檔案</button>
+                </div>
+                <div class="gradient-border">
+                    <button id="generateKeywordBtn" class="btn-tech">產生關鍵詞文字雲</button>
+                </div>
+                <div class="gradient-border">
+                    <button id="generateSentenceBtn" class="btn-tech">產生整句話簡化語意</button>
+                </div>
             </div>
-        </header>
-        
-        <!-- Main Content -->
-        <main>
-            <!-- Controls Section -->
-            <section class="tech-container p-6 mb-8 relative">
-                <div class="tech-grid"></div>
-                <div class="data-flow"></div>
-                
-                <div class="flex flex-col md:flex-row items-center justify-between gap-4">
-                    <div class="file-input-container">
-                        <button class="tech-button flex items-center">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
-                                <path fill-rule="evenodd" d="M8 4a3 3 0 00-3 3v4a5 5 0 0010 0V7a1 1 0 112 0v4a7 7 0 11-14 0V7a5 5 0 0110 0v4a3 3 0 11-6 0V7a1 1 0 012 0v4a1 1 0 102 0V7a3 3 0 00-3-3z" clip-rule="evenodd" />
-                            </svg>
-                            選擇Excel檔案
-                        </button>
-                        <input type="file" id="fileInput" accept=".xlsx, .xls" />
-                    </div>
-                    
-                    <div class="flex flex-col md:flex-row gap-4">
-                        <button id="generateKeywords" class="tech-button flex items-center">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
-                                <path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z" />
-                                <path fill-rule="evenodd" d="M4 5a2 2 0 012-2 3 3 0 003 3h2a3 3 0 003-3 2 2 0 012 2v11a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm3 4a1 1 0 000 2h.01a1 1 0 100-2H7zm3 0a1 1 0 000 2h3a1 1 0 100-2h-3zm-3 4a1 1 0 000 2h.01a1 1 0 100-2H7zm3 0a1 1 0 000 2h3a1 1 0 100-2h-3z" clip-rule="evenodd" />
-                            </svg>
-                            產生關鍵詞文字雲
-                        </button>
-                        <button id="generateSentiment" class="tech-button flex items-center">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
-                                <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd" />
-                            </svg>
-                            產生整句話簡化語意
-                        </button>
-                    </div>
-                </div>
-                
-                <div id="statusMessage" class="mt-4 text-center text-sm font-medium text-gray-600 hidden">
-                    處理中，請稍候...
-                </div>
-            </section>
             
-            <!-- Word Cloud Display -->
-            <section class="wordcloud-container glow-effect bg-white/80 backdrop-blur-sm">
-                <canvas id="wordCloudCanvas"></canvas>
-            </section>
-            
-            <!-- Instructions -->
-            <section class="tech-container p-6 mt-8">
-                <h2 class="text-xl font-bold mb-4 text-gray-800">使用說明</h2>
-                <div class="space-y-2 text-gray-700">
-                    <p>1. 頁面載入時會自動嘗試讀取同目錄下的 demo.xlsx 檔案</p>
-                    <p>2. 若要使用自己的Excel檔案，點擊「選擇Excel檔案」按鈕</p>
-                    <p>3. 選擇功能：</p>
-                    <ul class="list-disc pl-8">
-                        <li>「產生關鍵詞文字雲」：分析並提取純中文多字詞組（名詞和動詞為主）</li>
-                        <li>「產生整句話簡化語意」：處理整行文本並簡化主要語意</li>
-                    </ul>
-                    <p>4. 文字雲會自動在橢圓形區域內顯示，詞組大小根據出現頻率自動調整</p>
-                </div>
-            </section>
-        </main>
+            <!-- Status display -->
+            <div id="fileStatus" class="mb-4 text-gray-600"></div>
+        </div>
         
-        <!-- Footer -->
-        <footer class="mt-12 pt-6 border-t border-gray-200 text-center text-gray-600 text-sm">
-            <p>© 2023 國家衛生研究院智慧醫療文字雲生成器 - 版權所有</p>
-        </footer>
+        <!-- Word cloud container -->
+        <div class="cloud-container w-full" style="height: 70vh; min-height: 400px;">
+            <canvas id="wordCloudCanvas" width="800" height="600"></canvas>
+            <div class="loading-indicator" id="loadingIndicator">
+                <div class="loading-spinner"></div>
+                <div class="mt-3 text-center text-blue-600">處理中...</div>
+            </div>
+        </div>
     </div>
     
     <script>
-        // Constants and variables
-        const fonts = [
-            "'Microsoft JhengHei'", "'PMingLiU'", "'DFKai-SB'", "'SimSun'", "'NSimSun'", 
-            "'FangSong'", "'KaiTi'", "'STKaiti'", "'STSong'", "'STFangsong'"
-        ];
-        
-        const chineseStopWords = new Set([
-            "的", "了", "和", "是", "就", "都", "而", "及", "與", "著", "或", "一個", "沒有", 
-            "我們", "你們", "他們", "她們", "它們", "這個", "那個", "這些", "那些", "什麼", "為什麼", 
-            "怎麼", "如何", "啊", "呢", "吧", "喔", "嗎", "嘛", "哦", "啦", "呀", "吶", "耶", "哎", 
-            "唉", "誒", "哇", "欸", "這樣", "那樣", "這裡", "那裡", "之", "在", "上", "下", "由", "對", 
-            "於", "中", "因", "從", "向", "被", "給", "把", "讓", "得", "說", "看", "要", "能", "會", 
-            "可以", "應該", "可能", "但是", "不過", "如果", "然後", "所以", "因為", "雖然", "並且", 
-            "以及", "不僅", "而且", "否則", "已經", "曾經", "正在", "將會"
-        ]);
-        
+        // Global variables
         let excelData = [];
-        let wordFrequencies = [];
-        let cloudLayout;
-        let canvas;
-        let context;
-        let canvasWidth;
-        let canvasHeight;
+        let wordCloudWords = [];
+        let canvas = document.getElementById('wordCloudCanvas');
+        let ctx = canvas.getContext('2d');
+        let wordObjects = [];
+        let animationId;
+        let fileInput = document.getElementById('fileInput');
+        let fileSelectBtn = document.getElementById('fileSelectBtn');
+        let generateKeywordBtn = document.getElementById('generateKeywordBtn');
+        let generateSentenceBtn = document.getElementById('generateSentenceBtn');
+        let fileStatus = document.getElementById('fileStatus');
+        let loadingIndicator = document.getElementById('loadingIndicator');
         
-        // Initialize the application
-        document.addEventListener('DOMContentLoaded', function() {
-            initializeCanvas();
-            setupEventListeners();
-            tryLoadDefaultFile();
-        });
-        
-        // Initialize the canvas for word cloud
-        function initializeCanvas() {
-            canvas = document.getElementById('wordCloudCanvas');
-            context = canvas.getContext('2d');
-            
-            function resizeCanvas() {
-                const container = document.querySelector('.wordcloud-container');
-                canvasWidth = container.offsetWidth;
-                canvasHeight = container.offsetHeight;
-                
-                canvas.width = canvasWidth;
-                canvas.height = canvasHeight;
-            }
-            
-            // Resize canvas initially and when window size changes
+        // Common Chinese stopwords
+        const stopwords = new Set([
+            '的', '了', '和', '是', '在', '我', '有', '就', '不', '人', '都', '一', '一個', '上', '也', '很', '到', '說', '要', '去',
+            '你', '會', '著', '沒有', '看', '好', '自己', '這', '會', '但', '那', '怎麼', '他', '她', '它', '這個', '那個', '什麼',
+            '為什麼', '如何', '可以', '因為', '所以', '可能', '應該', '於', '地', '能', '然後', '再', '得', '吧', '呢', '啊', '喔',
+            '嗎', '啦', '吶', '咧', '就是', '還是', '還有', '只是', '只有', '而已', '一樣', '一直', '一般', '這樣', '那樣', '如果',
+            '的話', '來', '把', '被', '讓', '使', '從', '對', '給', '向', '跟', '當', '做', '想', '要', '用', '時', '才', '已經', '曾經'
+        ]);
+
+        // Initialize the canvas and resize handler
+        function initCanvas() {
             resizeCanvas();
             window.addEventListener('resize', resizeCanvas);
         }
-        
-        // Set up event listeners for buttons
-        function setupEventListeners() {
-            document.getElementById('fileInput').addEventListener('change', handleFileSelect);
-            document.getElementById('generateKeywords').addEventListener('click', function() {
-                processExcelData('keywords');
-            });
-            document.getElementById('generateSentiment').addEventListener('click', function() {
-                processExcelData('sentiment');
-            });
+
+        // Resize canvas to fit its container
+        function resizeCanvas() {
+            const container = canvas.parentElement;
+            canvas.width = container.clientWidth;
+            canvas.height = container.clientHeight;
+            
+            // Redraw word cloud if we have data
+            if (wordObjects.length > 0) {
+                drawWordCloud();
+            }
         }
-        
-        // Try to load the default Excel file
-        function tryLoadDefaultFile() {
-            showStatus('正在尋找預設檔案 demo.xlsx...');
+
+        // Load Excel file from URL or local file
+        async function loadExcel(file) {
+            showLoading(true);
+            fileStatus.textContent = "讀取Excel檔案中...";
             
-            fetch('demo.xlsx')
-                .then(response => {
-                    if (!response.ok) throw new Error("找不到預設檔案");
-                    return response.arrayBuffer();
-                })
-                .then(data => {
-                    showStatus('讀取預設檔案中...');
-                    processExcelBuffer(data);
-                    setTimeout(() => {
-                        processExcelData('keywords');
-                    }, 500);
-                })
-                .catch(error => {
-                    console.error('載入預設檔案失敗:', error);
-                    showStatus('找不到預設檔案，請手動上傳Excel檔案', true);
-                    setTimeout(() => hideStatus(), 3000);
-                });
-        }
-        
-        // Handle file selection
-        function handleFileSelect(event) {
-            const file = event.target.files[0];
-            if (!file) return;
-            
-            const reader = new FileReader();
-            showStatus(`讀取檔案: ${file.name}`);
-            
-            reader.onload = function(e) {
-                try {
-                    processExcelBuffer(e.target.result);
-                } catch (error) {
-                    console.error('處理Excel檔案時發生錯誤:', error);
-                    showStatus('處理Excel檔案時發生錯誤，請確認檔案格式正確', true);
-                    setTimeout(() => hideStatus(), 3000);
-                }
-            };
-            
-            reader.onerror = function() {
-                showStatus('讀取檔案失敗，請重試', true);
-                setTimeout(() => hideStatus(), 3000);
-            };
-            
-            reader.readAsArrayBuffer(file);
-        }
-        
-        // Process Excel buffer data
-        function processExcelBuffer(buffer) {
             try {
-                const data = new Uint8Array(buffer);
+                let data;
+                if (typeof file === 'string') {
+                    // Load from URL
+                    const response = await fetch(file);
+                    if (!response.ok) {
+                        throw new Error(`無法載入檔案: ${response.statusText}`);
+                    }
+                    const arrayBuffer = await response.arrayBuffer();
+                    data = new Uint8Array(arrayBuffer);
+                } else {
+                    // Load from file input
+                    const arrayBuffer = await file.arrayBuffer();
+                    data = new Uint8Array(arrayBuffer);
+                }
+                
+                // Parse Excel data
                 const workbook = XLSX.read(data, { type: 'array' });
                 const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
-                
-                // Convert to array of objects
                 const jsonData = XLSX.utils.sheet_to_json(firstSheet, { header: 1 });
                 
-                // Filter out empty rows and extract first column only
-                excelData = jsonData
-                    .filter(row => row.length > 0 && row[0] && row[0].toString().trim() !== '')
-                    .map(row => row[0].toString().trim());
+                // Extract first column data, skipping header row if it exists
+                const firstColData = jsonData
+                    .filter(row => row.length > 0 && row[0] !== undefined && row[0] !== null)
+                    .map(row => String(row[0]));
                 
-                showStatus(`成功載入資料: 共 ${excelData.length} 筆記錄`);
-                setTimeout(() => hideStatus(), 2000);
+                if (firstColData.length === 0) {
+                    throw new Error("Excel檔案中沒有找到資料");
+                }
+                
+                excelData = firstColData;
+                fileStatus.textContent = `已載入 ${excelData.length} 筆資料`;
+                
+                return firstColData;
             } catch (error) {
-                console.error('解析Excel檔案失敗:', error);
-                showStatus('解析Excel檔案失敗，請確認檔案格式', true);
-                setTimeout(() => hideStatus(), 3000);
+                console.error("Excel檔案處理錯誤:", error);
+                fileStatus.textContent = `Excel檔案處理錯誤: ${error.message}`;
+                showLoading(false);
+                throw error;
             }
         }
-        
-        // Process Excel data and generate word cloud
-        function processExcelData(mode) {
-            if (excelData.length === 0) {
-                showStatus('沒有資料可處理，請先選擇Excel檔案', true);
-                setTimeout(() => hideStatus(), 3000);
-                return;
-            }
+
+        // Simple Chinese word segmentation
+        function segmentChinese(text) {
+            // Remove all non-Chinese characters (including English and numbers)
+            const chineseOnly = text.replace(/[^\u4e00-\u9fa5]/g, ' ').trim();
             
-            showStatus('正在處理資料...');
+            // N-gram approach (2-gram and 3-gram) for Chinese text
+            let words = [];
             
-            // Use setTimeout to allow UI to update before processing
-            setTimeout(() => {
-                try {
-                    if (mode === 'keywords') {
-                        processKeywords();
-                    } else {
-                        processSentiment();
-                    }
-                } catch (error) {
-                    console.error('處理資料時發生錯誤:', error);
-                    showStatus('處理資料時發生錯誤', true);
-                    setTimeout(() => hideStatus(), 3000);
+            // 2-gram
+            for (let i = 0; i < chineseOnly.length - 1; i++) {
+                const twoGram = chineseOnly.substring(i, i + 2);
+                if (twoGram.trim().length === 2) {
+                    words.push(twoGram);
                 }
-            }, 100);
-        }
-        
-        // Process keywords mode
-        function processKeywords() {
-            showStatus('分析關鍵詞中...');
-            
-            // Reset word frequencies
-            wordFrequencies = [];
-            
-            // Process each line of text
-            const words = {};
-            
-            excelData.forEach(line => {
-                // Extract Chinese words from the line (simple implementation)
-                extractChineseWords(line).forEach(word => {
-                    // Skip English characters
-                    if (/[a-zA-Z]/.test(word)) return;
-                    
-                    // Skip single Chinese characters
-                    if (word.length === 1) return;
-                    
-                    // Skip stopwords
-                    if (chineseStopWords.has(word)) return;
-                    
-                    // Count word frequency
-                    words[word] = (words[word] || 0) + 1;
-                });
-            });
-            
-            // Convert to array for word cloud
-            for (const word in words) {
-                wordFrequencies.push({
-                    text: word,
-                    size: calculateFontSize(words[word]),
-                    freq: words[word],
-                    font: getRandomFont()
-                });
             }
             
-            // Sort by frequency for better display
-            wordFrequencies.sort((a, b) => b.freq - a.freq);
-            
-            // Limit to top 150 words for performance
-            wordFrequencies = wordFrequencies.slice(0, 150);
-            
-            generateWordCloud();
-        }
-        
-        // Process sentiment mode
-        function processSentiment() {
-            showStatus('分析整句語意中...');
-            
-            // Reset word frequencies
-            wordFrequencies = [];
-            
-            // Use whole sentences as "words" and count frequencies
-            const sentences = {};
-            
-            excelData.forEach(line => {
-                // Simplify the line to extract main sentiment
-                const simplifiedLine = simplifyLine(line);
-                
-                // Skip empty lines
-                if (!simplifiedLine) return;
-                
-                // Count sentence frequency
-                sentences[simplifiedLine] = (sentences[simplifiedLine] || 0) + 1;
-            });
-            
-            // Convert to array for word cloud
-            for (const sentence in sentences) {
-                wordFrequencies.push({
-                    text: sentence,
-                    size: calculateFontSize(sentences[sentence]),
-                    freq: sentences[sentence],
-                    font: getRandomFont()
-                });
-            }
-            
-            // Sort by frequency for better display
-            wordFrequencies.sort((a, b) => b.freq - a.freq);
-            
-            // Limit to top 100 sentences for performance
-            wordFrequencies = wordFrequencies.slice(0, 100);
-            
-            generateWordCloud();
-        }
-        
-        // Extract Chinese words from text (simplified approach)
-        function extractChineseWords(text) {
-            // This is a simplified approach to extract Chinese words
-            // In a production environment, you would use a proper Chinese word segmentation library
-            
-            const words = [];
-            
-            // Split by common punctuation and whitespace
-            const segments = text.split(/[\s.,;:!?，。；：！？、\(\)\[\]\{\}（）【】『』「」''""]/);
-            
-            // Process each segment for potential Chinese words
-            segments.forEach(segment => {
-                // Skip empty segments
-                if (segment.trim() === '') return;
-                
-                // For Chinese characters, try different word lengths
-                if (/[\u4e00-\u9fa5]/.test(segment)) {
-                    // Extract 2-character words
-                    for (let i = 0; i < segment.length - 1; i++) {
-                        const word = segment.substr(i, 2);
-                        if (/^[\u4e00-\u9fa5]{2}$/.test(word)) {
-                            words.push(word);
-                        }
-                    }
-                    
-                    // Extract 3-character words
-                    for (let i = 0; i < segment.length - 2; i++) {
-                        const word = segment.substr(i, 3);
-                        if (/^[\u4e00-\u9fa5]{3}$/.test(word)) {
-                            words.push(word);
-                        }
-                    }
-                    
-                    // Extract 4-character words
-                    for (let i = 0; i < segment.length - 3; i++) {
-                        const word = segment.substr(i, 4);
-                        if (/^[\u4e00-\u9fa5]{4}$/.test(word)) {
-                            words.push(word);
-                        }
-                    }
-                    
-                    // Add the whole segment if it's a short Chinese phrase
-                    if (segment.length >= 2 && segment.length <= 8 && /^[\u4e00-\u9fa5]+$/.test(segment)) {
-                        words.push(segment);
-                    }
+            // 3-gram
+            for (let i = 0; i < chineseOnly.length - 2; i++) {
+                const threeGram = chineseOnly.substring(i, i + 3);
+                if (threeGram.trim().length === 3) {
+                    words.push(threeGram);
                 }
-            });
-            
-            return words;
-        }
-        
-        // Simplify a line to extract its main sentiment
-        function simplifyLine(line) {
-            // Remove punctuation and extra spaces
-            const simplified = line.replace(/[\s.,;:!?，。；：！？、\(\)\[\]\{\}（）【】『』「」''""]+/g, ' ').trim();
-            
-            // Skip lines that are too short
-            if (simplified.length < 2) return '';
-            
-            // Return the simplified line
-            return simplified;
-        }
-        
-        // Calculate font size based on frequency
-        function calculateFontSize(frequency) {
-            // Base size plus logarithmic scaling
-            return 14 + Math.log(frequency + 1) * 10;
-        }
-        
-        // Get a random font from the list
-        function getRandomFont() {
-            return fonts[Math.floor(Math.random() * fonts.length)];
-        }
-        
-        // Generate the word cloud
-        function generateWordCloud() {
-            showStatus('生成文字雲中...');
-            
-            if (wordFrequencies.length === 0) {
-                context.clearRect(0, 0, canvasWidth, canvasHeight);
-                context.font = '20px sans-serif';
-                context.fillStyle = '#6b7280';
-                context.textAlign = 'center';
-                context.fillText('沒有找到足夠的關鍵詞或語意', canvasWidth / 2, canvasHeight / 2);
-                hideStatus();
-                return;
             }
             
-            // Initialize words for D3 cloud layout
-            const words = wordFrequencies.map(d => ({
-                text: d.text,
-                size: d.size,
-                font: d.font,
-                freq: d.freq,
-                // Random initial position within the canvas
-                x: Math.random() * canvasWidth,
-                y: Math.random() * canvasHeight,
-                // Random velocity
-                vx: (Math.random() - 0.5) * 2,
-                vy: (Math.random() - 0.5) * 2
+            // 4-gram for longer phrases
+            for (let i = 0; i < chineseOnly.length - 3; i++) {
+                const fourGram = chineseOnly.substring(i, i + 4);
+                if (fourGram.trim().length === 4) {
+                    words.push(fourGram);
+                }
+            }
+            
+            // Filter out stopwords and single characters
+            return words.filter(word => 
+                word.length >= 2 && 
+                !stopwords.has(word) && 
+                !/[a-zA-Z0-9]/.test(word)
+            );
+        }
+
+        // Process text for keyword extraction
+        function processForKeywords(textArray) {
+            showLoading(true);
+            
+            // Segment and count all words
+            let wordFreq = {};
+            let totalWords = 0;
+            
+            textArray.forEach(text => {
+                const words = segmentChinese(text);
+                words.forEach(word => {
+                    // Skip single character words
+                    if (word.length < 2) return;
+                    
+                    // Skip words with English or numbers
+                    if (/[a-zA-Z0-9]/.test(word)) return;
+                    
+                    if (!wordFreq[word]) {
+                        wordFreq[word] = 0;
+                    }
+                    wordFreq[word]++;
+                    totalWords++;
+                });
+            });
+            
+            // Sort by frequency
+            const wordFreqArray = Object.entries(wordFreq)
+                .filter(([word, count]) => count > 0)
+                .sort((a, b) => b[1] - a[1]);
+            
+            // Take top 100 words or fewer if there aren't that many
+            const topWords = wordFreqArray.slice(0, 100);
+            
+            // Create word cloud data
+            const maxFreq = topWords.length > 0 ? topWords[0][1] : 1;
+            
+            wordCloudWords = topWords.map(([word, count]) => ({
+                text: word,
+                size: 14 + (count / maxFreq) * 56, // Size from 14 to 70
+                freq: count
             }));
             
-            // Clear canvas
-            context.clearRect(0, 0, canvasWidth, canvasHeight);
-            
-            // Start animation
-            requestAnimationFrame(() => animateCloud(words));
-            
-            hideStatus();
+            showLoading(false);
+            return wordCloudWords;
         }
-        
-        // Animate the word cloud
-        function animateCloud(words) {
-            // Clear canvas
-            context.clearRect(0, 0, canvasWidth, canvasHeight);
+
+        // Process text for sentence simplification
+        function processForSentences(textArray) {
+            showLoading(true);
             
-            // Update positions and draw words
-            for (let i = 0; i < words.length; i++) {
-                const word = words[i];
+            // Filter non-Chinese content and simplify sentences
+            const simplifiedSentences = textArray
+                .map(text => {
+                    // Remove English and numbers
+                    return text.replace(/[a-zA-Z0-9]+/g, '').trim();
+                })
+                .filter(text => text.length > 0);
+            
+            // Count sentence frequencies
+            let sentenceFreq = {};
+            simplifiedSentences.forEach(sentence => {
+                if (!sentenceFreq[sentence]) {
+                    sentenceFreq[sentence] = 0;
+                }
+                sentenceFreq[sentence]++;
+            });
+            
+            // Sort by frequency
+            const sentenceFreqArray = Object.entries(sentenceFreq)
+                .sort((a, b) => b[1] - a[1]);
+            
+            // Take top 50 sentences or fewer if there aren't that many
+            const topSentences = sentenceFreqArray.slice(0, 50);
+            
+            // Create word cloud data for sentences
+            const maxFreq = topSentences.length > 0 ? topSentences[0][1] : 1;
+            
+            wordCloudWords = topSentences.map(([sentence, count]) => ({
+                text: sentence,
+                size: 14 + (count / maxFreq) * 36, // Size from 14 to 50, smaller for sentences
+                freq: count
+            }));
+            
+            showLoading(false);
+            return wordCloudWords;
+        }
+
+        // Initialize word cloud objects for animation
+        function initWordCloud(words) {
+            stopAnimation();
+            
+            const canvasWidth = canvas.width;
+            const canvasHeight = canvas.height;
+            
+            // Create objects for each word
+            wordObjects = words.map(word => {
+                // Randomize position, but avoid edges initially
+                const padding = word.size;
+                const x = Math.random() * (canvasWidth - padding * 2) + padding;
+                const y = Math.random() * (canvasHeight - padding * 2) + padding;
                 
-                // Update position
-                word.x += word.vx;
-                word.y += word.vy;
+                // Randomize movement
+                const speedMultiplier = 0.5;
+                const dx = (Math.random() * 2 - 1) * speedMultiplier;
+                const dy = (Math.random() * 2 - 1) * speedMultiplier;
                 
-                // Check boundaries (oval shape)
-                checkOvalBoundary(word);
+                // Randomize color
+                const hue = Math.random() * 360;
+                const saturation = 70 + Math.random() * 30;
+                const lightness = 40 + Math.random() * 20;
+                const color = `hsl(${hue}, ${saturation}%, ${lightness}%)`;
                 
-                // Draw word
-                drawWord(word);
+                // Randomize font
+                const fonts = [
+                    "'Microsoft YaHei'", "'PingFang TC'", "'Heiti TC'", 
+                    "'STHeiti'", "'Source Han Sans TC'", "'Noto Sans TC'", 
+                    "'Microsoft JhengHei'", "'DFKai-SB'"
+                ];
+                const font = fonts[Math.floor(Math.random() * fonts.length)];
+                
+                return {
+                    text: word.text,
+                    x,
+                    y,
+                    dx,
+                    dy,
+                    size: word.size,
+                    color,
+                    font
+                };
+            });
+            
+            startAnimation();
+        }
+
+        // Start word cloud animation
+        function startAnimation() {
+            if (!animationId) {
+                animate();
             }
-            
-            // Continue animation
-            requestAnimationFrame(() => animateCloud(words));
         }
-        
-        // Check if a word hits the oval boundary
-        function checkOvalBoundary(word) {
+
+        // Stop word cloud animation
+        function stopAnimation() {
+            if (animationId) {
+                cancelAnimationFrame(animationId);
+                animationId = null;
+            }
+        }
+
+        // Animate word cloud
+        function animate() {
+            animationId = requestAnimationFrame(animate);
+            drawWordCloud();
+        }
+
+        // Draw word cloud on canvas
+        function drawWordCloud() {
+            const canvasWidth = canvas.width;
+            const canvasHeight = canvas.height;
+            
+            // Clear canvas
+            ctx.clearRect(0, 0, canvasWidth, canvasHeight);
+            
+            // Calculate ellipse parameters
+            const ellipseWidth = canvasWidth * 0.95;
+            const ellipseHeight = canvasHeight * 0.9;
             const centerX = canvasWidth / 2;
             const centerY = canvasHeight / 2;
-            const radiusX = (canvasWidth - word.size) / 2;
-            const radiusY = (canvasHeight - word.size) / 2;
             
-            // Calculate normalized position relative to oval center
-            const nx = (word.x - centerX) / radiusX;
-            const ny = (word.y - centerY) / radiusY;
-            
-            // Calculate distance from center (normalized)
-            const distance = Math.sqrt(nx * nx + ny * ny);
-            
-            // If outside the oval, bounce
-            if (distance > 1) {
-                // Calculate angle
-                const angle = Math.atan2(ny, nx);
+            // Move and draw each word
+            wordObjects.forEach(obj => {
+                // Move word
+                obj.x += obj.dx;
+                obj.y += obj.dy;
                 
-                // Calculate normal vector
-                const normalX = Math.cos(angle);
-                const normalY = Math.sin(angle);
+                // Set font
+                ctx.font = `bold ${obj.size}px ${obj.font}, sans-serif`;
+                ctx.fillStyle = obj.color;
                 
-                // Calculate dot product of velocity and normal
-                const dot = word.vx * normalX + word.vy * normalY;
+                // Measure text
+                const textWidth = ctx.measureText(obj.text).width;
+                const textHeight = obj.size; // Approximation
                 
-                // Calculate reflection
-                word.vx = word.vx - 2 * dot * normalX;
-                word.vy = word.vy - 2 * dot * normalY;
+                // Check ellipse boundaries
+                const halfWidth = textWidth / 2;
+                const halfHeight = textHeight / 2;
                 
-                // Reposition to boundary
-                word.x = centerX + radiusX * normalX;
-                word.y = centerY + radiusY * normalY;
+                // Test if word is outside ellipse
+                const normalizedX = (obj.x - centerX) / (ellipseWidth / 2);
+                const normalizedY = (obj.y - centerY) / (ellipseHeight / 2);
+                const distanceSquared = normalizedX * normalizedX + normalizedY * normalizedY;
                 
-                // Add some randomness to make it more natural
-                word.vx += (Math.random() - 0.5) * 0.5;
-                word.vy += (Math.random() - 0.5) * 0.5;
-                
-                // Ensure minimum speed
-                const speed = Math.sqrt(word.vx * word.vx + word.vy * word.vy);
-                if (speed < 1) {
-                    word.vx = (word.vx / speed) * 1;
-                    word.vy = (word.vy / speed) * 1;
+                if (distanceSquared > 0.9) { // 0.9 to account for text size
+                    // Bounce back from boundary
+                    // Calculate normal vector
+                    const nx = normalizedX / Math.sqrt(distanceSquared);
+                    const ny = normalizedY / Math.sqrt(distanceSquared);
+                    
+                    // Reflect velocity vector
+                    const dotProduct = obj.dx * nx + obj.dy * ny;
+                    obj.dx = obj.dx - 2 * dotProduct * nx;
+                    obj.dy = obj.dy - 2 * dotProduct * ny;
+                    
+                    // Move word back inside boundary
+                    const angle = Math.atan2(normalizedY, normalizedX);
+                    obj.x = centerX + (ellipseWidth / 2 - halfWidth) * 0.9 * Math.cos(angle);
+                    obj.y = centerY + (ellipseHeight / 2 - halfHeight) * 0.9 * Math.sin(angle);
                 }
                 
-                // Limit maximum speed
-                const maxSpeed = 3;
-                if (speed > maxSpeed) {
-                    word.vx = (word.vx / speed) * maxSpeed;
-                    word.vy = (word.vy / speed) * maxSpeed;
+                // Also check for window boundaries
+                if (obj.x - halfWidth < 0 || obj.x + halfWidth > canvasWidth) {
+                    obj.dx = -obj.dx;
+                    obj.x = Math.max(halfWidth, Math.min(canvasWidth - halfWidth, obj.x));
                 }
+                
+                if (obj.y - halfHeight < 0 || obj.y + halfHeight > canvasHeight) {
+                    obj.dy = -obj.dy;
+                    obj.y = Math.max(halfHeight, Math.min(canvasHeight - halfHeight, obj.y));
+                }
+                
+                // Draw word
+                ctx.fillText(obj.text, obj.x - halfWidth, obj.y + halfHeight / 2);
+            });
+        }
+
+        // Show or hide loading indicator
+        function showLoading(show) {
+            loadingIndicator.style.display = show ? 'block' : 'none';
+        }
+
+        // Try to load default file
+        async function tryLoadDefaultFile() {
+            try {
+                const data = await loadExcel('demo.xlsx');
+                generateKeywordCloud(); // Generate keyword cloud by default
+                return true;
+            } catch (error) {
+                console.log("Default file not loaded:", error);
+                fileStatus.textContent = "請選擇Excel檔案開始使用";
+                return false;
             }
         }
-        
-        // Draw a word on the canvas
-        function drawWord(word) {
-            // Set font style
-            context.font = `${word.size}px ${word.font}`;
-            context.textAlign = 'center';
-            context.textBaseline = 'middle';
-            
-            // Generate a vibrant color based on word's position
-            const hue = (word.x + word.y) % 360;
-            const saturation = 70 + Math.random() * 30;
-            const lightness = 40 + Math.random() * 20;
-            context.fillStyle = `hsl(${hue}, ${saturation}%, ${lightness}%)`;
-            
-            // Draw text
-            context.fillText(word.text, word.x, word.y);
-        }
-        
-        // Show status message
-        function showStatus(message, isError = false) {
-            const statusElement = document.getElementById('statusMessage');
-            statusElement.textContent = message;
-            statusElement.classList.remove('hidden');
-            
-            if (isError) {
-                statusElement.classList.add('text-red-500');
-            } else {
-                statusElement.classList.remove('text-red-500');
+
+        // Generate keyword cloud
+        async function generateKeywordCloud() {
+            if (excelData.length === 0) {
+                fileStatus.textContent = "請先選擇Excel檔案";
+                return;
             }
+            
+            showLoading(true);
+            fileStatus.textContent = "生成關鍵詞文字雲中...";
+            
+            const words = processForKeywords(excelData);
+            if (words.length === 0) {
+                fileStatus.textContent = "未找到有效的關鍵詞";
+                showLoading(false);
+                return;
+            }
+            
+            initWordCloud(words);
+            fileStatus.textContent = `已生成 ${words.length} 個關鍵詞的文字雲`;
         }
-        
-        // Hide status message
-        function hideStatus() {
-            const statusElement = document.getElementById('statusMessage');
-            statusElement.classList.add('hidden');
+
+        // Generate sentence cloud
+        async function generateSentenceCloud() {
+            if (excelData.length === 0) {
+                fileStatus.textContent = "請先選擇Excel檔案";
+                return;
+            }
+            
+            showLoading(true);
+            fileStatus.textContent = "生成整句話簡化語意文字雲中...";
+            
+            const sentences = processForSentences(excelData);
+            if (sentences.length === 0) {
+                fileStatus.textContent = "未找到有效的語句";
+                showLoading(false);
+                return;
+            }
+            
+            initWordCloud(sentences);
+            fileStatus.textContent = `已生成 ${sentences.length} 個簡化語句的文字雲`;
         }
+
+        // Event listeners
+        document.addEventListener('DOMContentLoaded', function() {
+            initCanvas();
+            
+            // Fix file selection
+            fileSelectBtn.addEventListener('click', function() {
+                fileInput.click();
+            });
+            
+            // Make sure file input event works
+            fileInput.addEventListener('change', async function(e) {
+                if (this.files && this.files[0]) {
+                    try {
+                        await loadExcel(this.files[0]);
+                        generateKeywordCloud();
+                    } catch (error) {
+                        console.error("Error processing file:", error);
+                    }
+                }
+            });
+            
+            // Attach event listeners to buttons
+            generateKeywordBtn.addEventListener('click', generateKeywordCloud);
+            generateSentenceBtn.addEventListener('click', generateSentenceCloud);
+            
+            // Try to load default file
+            tryLoadDefaultFile();
+        });
     </script>
 </body>
 </html>
