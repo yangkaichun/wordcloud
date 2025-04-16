@@ -153,7 +153,7 @@
     <!-- Header with logo -->
     <header class="header py-3 px-6 flex items-center justify-between z-10">
         <div class="flex items-center">
-            <img id="logo" src=icon.png alt="" class="h-12 mr-4">
+            <img id="logo" src="logo.png" alt="" class="h-12 mr-4">
      <h1 class="text-2xl font-bold text-gray-800">國家衛生研究院AI小管家_用戶提問文字雲生成器</h1> 
         </div>
     </header>
@@ -230,13 +230,13 @@
             const logo = document.getElementById('logo');
             const testImg = new Image();
             testImg.onload = function() {
-                logo.src = 'icon.png';
+                logo.src = 'logo.png';
             };
             testImg.onerror = function() {
                 // Fallback to a default logo (simple NH logo)
                 logo.src = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNDAgODAiPjxwYXRoIGZpbGw9IiMzNDc4RkYiIGQ9Ik02MCAxMGg1MHY1MEg2MHoiLz48cGF0aCBmaWxsPSIjZmZmIiBkPSJNNzAgMjVoMTB2MjVINzBWMjV6bTIwIDBoMTB2MjVIOTBWMjV6TTc1IDIwVjQwaDEwVjIwSDc1eiIvPjx0ZXh0IHg9IjEyMCIgeT0iNTAiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIyNCIgZmlsbD0iIzM0NzhGRiI+5ZyL5a625rOi55SfLOeglOWPiueUn+mbu+W9seWgseS4reW/gzwvdGV4dD48L3N2Zz4=';
             };
-            testImg.src = 'icon.png';
+            testImg.src = 'logo.png';
         }
 
         // Set up the canvas
