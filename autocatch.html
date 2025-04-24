@@ -504,6 +504,10 @@
                 const words = [];
                 for (let i = 0; i < text.length - 1; i++) {
                     if (i < text.length - 2) {
+                        const threeChars = text.substr(i, 4);
+                        words.push(threeChars);
+                    }
+                     {
                         const threeChars = text.substr(i, 3);
                         words.push(threeChars);
                     }
