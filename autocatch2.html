@@ -4,34 +4,113 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>國家衛生研究院AI小管家_用戶提問文字雲生成器</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
-    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/d3@7.8.5/dist/d3.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/d3-cloud@1.2.5/build/d3.layout.cloud.min.js"></script>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700&display=swap');
         
         body {
             font-family: 'Noto Sans TC', sans-serif;
+            margin: 0;
+            padding: 0;
             background: linear-gradient(135deg, #f5f7fa 0%, #e4e8ec 100%);
+            color: #333;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
             min-height: 100vh;
         }
         
-        .canvas-container {
+        .header {
             width: 100%;
-            height: 70vh;
-            background-color: white;
-            border-radius: 10px;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
-            overflow: hidden;
+            background: linear-gradient(90deg, rgba(255,255,255,0.9) 0%, rgba(231,240,248,0.9) 100%);
+            padding: 1rem 0;
+            box-shadow: 0 4px 15px rgba(0, 63, 145, 0.1);
+            display: flex;
+            justify-content: center;
+            align-items: center;
             position: relative;
+            margin-bottom: 2rem;
+            z-index: 100;
+        }
+        
+        .logo-container {
+            display: flex;
+            align-items: center;
+            max-width: 1200px;
+            width: 100%;
+            padding: 0 2rem;
+        }
+        
+        .logo {
+            height: 30px;
+            width: 30px;
+            margin-right: 1rem;
+        }
+        
+        .title {
+            font-size: 1.8rem;
+            color: #005b9f;
+            margin: 0;
+            font-weight: 700;
+            text-shadow: 0 1px 2px rgba(0,0,0,0.1);
+        }
+        
+        .container {
+            max-width: 1200px;
+            width: 100%;
+            padding: 0 2rem;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        
+        .control-panel {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            margin-bottom: 2rem;
+            width: 100%;
+            gap: 1rem;
+            position: relative;
+            z-index: 10;
         }
         
         .btn {
+            padding: 0.8rem 1.5rem;
+            border: none;
+            border-radius: 50px;
+            background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+            color: white;
+            font-size: 1rem;
+            font-weight: 500;
+            cursor: pointer;
             transition: all 0.3s ease;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+            position: relative;
+            overflow: hidden;
+            outline: none;
+            min-width: 200px;
+        }
+        
+        .btn:before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+            transition: all 0.4s ease;
+        }
+        
+        .btn:hover:before {
+            left: 100%;
         }
         
         .btn:hover {
+            background: linear-gradient(135deg, #2980b9 0%, #1a5276 100%);
             transform: translateY(-2px);
             box-shadow: 0 6px 15px rgba(0, 0, 0, 0.15);
         }
@@ -41,26 +120,60 @@
             box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
         }
         
+        .file-btn {
+            background: linear-gradient(135deg, #27ae60 0%, #218c54 100%);
+        }
+        
+        .file-btn:hover {
+            background: linear-gradient(135deg, #218c54 0%, #196f42 100%);
+        }
+        
+        .canvas-container {
+            width: 100%;
+            height: 70vh;
+            position: relative;
+            margin-top: 1rem;
+            border-radius: 20px;
+            overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            background: white;
+        }
+        
+        #wordCloudCanvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+        
+        .status {
+            margin-top: 1rem;
+            font-size: 1rem;
+            color: #555;
+            text-align: center;
+        }
+        
         .loading {
             position: absolute;
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
-            background: rgba(255, 255, 255, 0.9);
+            background: rgba(255, 255, 255, 0.8);
             display: flex;
             justify-content: center;
             align-items: center;
-            z-index: 100;
+            flex-direction: column;
+            z-index: 1000;
         }
         
-        .spinner {
+        .loading-spinner {
             width: 50px;
             height: 50px;
             border: 5px solid #f3f3f3;
             border-top: 5px solid #3498db;
             border-radius: 50%;
             animation: spin 1s linear infinite;
+            margin-bottom: 1rem;
         }
         
         @keyframes spin {
@@ -68,56 +181,143 @@
             100% { transform: rotate(360deg); }
         }
         
+        .loading-text {
+            font-size: 1.2rem;
+            color: #333;
+        }
+        
         .tech-element {
             position: absolute;
             background: linear-gradient(135deg, rgba(52, 152, 219, 0.1) 0%, rgba(41, 128, 185, 0.1) 100%);
             border-radius: 50%;
-            z-index: -1;
+            pointer-events: none;
+        }
+        
+        .tech-element-1 {
+            width: 300px;
+            height: 300px;
+            top: -150px;
+            right: -100px;
+            animation: float 15s infinite ease-in-out;
+        }
+        
+        .tech-element-2 {
+            width: 200px;
+            height: 200px;
+            bottom: -100px;
+            left: -80px;
+            animation: float 12s infinite ease-in-out reverse;
+        }
+        
+        @keyframes float {
+            0% { transform: translate(0, 0) rotate(0deg); }
+            25% { transform: translate(10px, 15px) rotate(5deg); }
+            50% { transform: translate(0, 25px) rotate(0deg); }
+            75% { transform: translate(-10px, 15px) rotate(-5deg); }
+            100% { transform: translate(0, 0) rotate(0deg); }
+        }
+        
+        .instructions {
+            margin-top: 2rem;
+            padding: 1.5rem;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+            width: 100%;
+            max-width: 800px;
+        }
+        
+        .instructions h3 {
+            margin-top: 0;
+            color: #2980b9;
+            border-bottom: 2px solid #f1f1f1;
+            padding-bottom: 0.5rem;
+        }
+        
+        .instructions ul {
+            padding-left: 1.5rem;
+        }
+        
+        .instructions li {
+            margin-bottom: 0.5rem;
+        }
+
+        #fileInput {
+            display: none;
+        }
+        
+        @media (max-width: 768px) {
+            .title {
+                font-size: 1.4rem;
+            }
+            
+            .btn {
+                min-width: auto;
+                width: calc(50% - 0.5rem);
+                font-size: 0.9rem;
+                padding: 0.7rem 1rem;
+            }
+            
+            .canvas-container {
+                height: 50vh;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .logo {
+                height: 30px;
+                width: 30px;
+            }
+            
+            .title {
+                font-size: 1.2rem;
+            }
+            
+            .btn {
+                width: 100%;
+                margin-bottom: 0.5rem;
+            }
+            
+            .control-panel {
+                flex-direction: column;
+            }
         }
     </style>
 </head>
-<body class="p-4">
-    <div class="tech-element w-64 h-64 top-0 right-0 -mr-32 -mt-32"></div>
-    <div class="tech-element w-48 h-48 bottom-0 left-0 -ml-24 -mb-24"></div>
+<body>
+    <div class="tech-element tech-element-1"></div>
+    <div class="tech-element tech-element-2"></div>
     
-    <header class="bg-white bg-opacity-90 p-4 rounded-lg shadow-md mb-6 flex items-center">
-<div>
-    <img id="logoImage" class="h-14 mr-4" src="https://www.nhri.edu.tw/userfiles/images/Logo.png" alt="國家衛生研究院">
-    <h1>國家衛生研究院AI小管家_用戶提問文字雲生成器(Beta)</h1>
-</div>
+    <header class="header">
+        <div class="logo-container">
+            <img id="logoImage" class="logo" src="logo.png" alt="國家衛生研究院" onerror="this.src='https://www.nhri.edu.tw/userfiles/images/Logo.png'">
+            <h1 class="title">國家衛生研究院AI小管家_用戶提問文字雲生成器(Beta)</h1>
+        </div>
     </header>
     
-    <div class="max-w-7xl mx-auto">
-        <div class="flex flex-wrap justify-center gap-4 mb-6">
-            <input type="file" id="fileInput" class="hidden" accept=".xlsx, .xls" />
-            <button id="fileBtn" class="btn bg-green-500 hover:bg-green-600 text-white px-6 py-3 rounded-full font-medium shadow-md">
-                選擇Excel檔案
-            </button>
-            <button id="keywordsBtn" class="btn bg-blue-500 hover:bg-blue-600 text-white px-6 py-3 rounded-full font-medium shadow-md">
-                產生關鍵詞文字雲
-            </button>
-            <button id="sentenceBtn" class="btn bg-blue-500 hover:bg-blue-600 text-white px-6 py-3 rounded-full font-medium shadow-md">
-                產生整句語意
-            </button>
+    <div class="container">
+        <div class="control-panel">
+            <input type="file" id="fileInput" accept=".xlsx, .xls" />
+            <button id="fileBtn" class="btn file-btn">選擇Excel檔案</button>
+            <button id="keywordsBtn" class="btn">產生關鍵詞文字雲</button>
+            <button id="sentenceBtn" class="btn">產生整句語意</button>
         </div>
         
         <div class="canvas-container">
-            <div id="wordCloudContainer"></div>
+            <canvas id="wordCloudCanvas"></canvas>
             <div id="loading" class="loading" style="display: none;">
-                <div class="text-center">
-                    <div class="spinner mx-auto mb-4"></div>
-                    <p id="loadingText" class="text-lg text-gray-700">處理中，請稍候...</p>
-                </div>
+                <div class="loading-spinner"></div>
+                <div class="loading-text">處理中，請稍候...</div>
             </div>
         </div>
         
-        <div id="status" class="mt-4 text-center text-gray-700">
+        <div id="status" class="status">
             準備就緒。請選擇Excel檔案或使用預設資料。
         </div>
         
-        <div class="mt-8 bg-white p-6 rounded-lg shadow-md">
-            <h3 class="text-xl font-bold text-blue-600 mb-4 pb-2 border-b">使用說明</h3>
-            <ul class="list-disc pl-6 space-y-2">
+        <div class="instructions mt-8">
+            <h3 class="text-xl font-bold text-blue-600 pb-2 border-b border-gray-200">使用說明</h3>
+            <ul class="pl-5 mt-4 space-y-2">
                 <li>選擇Excel檔案：上傳包含用戶提問的Excel檔案，第一列應是標題，第一欄包含要分析的文本。</li>
                 <li>產生關鍵詞文字雲：自動處理文本（移除數字和英文，進行翻譯和NLP處理），顯示關鍵詞文字雲。</li>
                 <li>產生整句語意：保留完整句子，顯示較長的語句。</li>
@@ -130,50 +330,290 @@
     <script>
         // 設定常量
         const EXCEL_URL = 'https://cmm.ai:9999/export_records?start_date=2024-10-01&end_date=2025-12-31';
-        const DEFAULT_CHINESE_FONT = '"Noto Sans TC", sans-serif';
-        
+        const CHINESE_FONTS = [
+            '"Noto Sans TC", sans-serif',
+            '"Microsoft JhengHei", sans-serif',
+            '"Microsoft YaHei", sans-serif',
+            '"SimHei", sans-serif',
+            '"SimSun", sans-serif',
+            '"KaiTi", sans-serif',
+            '"STKaiti", sans-serif',
+            '"NSimSun", sans-serif',
+            '"PMingLiU", sans-serif',
+            '"MingLiU", sans-serif'
+        ];
+
         // DOM元素
+        const canvas = document.getElementById('wordCloudCanvas');
+        const ctx = canvas.getContext('2d');
         const fileInput = document.getElementById('fileInput');
         const fileBtn = document.getElementById('fileBtn');
         const keywordsBtn = document.getElementById('keywordsBtn');
         const sentenceBtn = document.getElementById('sentenceBtn');
         const statusDiv = document.getElementById('status');
         const loadingDiv = document.getElementById('loading');
-        const loadingText = document.getElementById('loadingText');
-        const wordCloudContainer = document.getElementById('wordCloudContainer');
         
         // 全局變量
         let excelData = null;
         let words = [];
-        
+        let animationId = null;
+        let canvasWidth, canvasHeight;
+
         // 初始化
         function init() {
+            // 設置Canvas尺寸
+            resizeCanvas();
+            
             // 事件監聽
+            window.addEventListener('resize', resizeCanvas);
             fileBtn.addEventListener('click', () => fileInput.click());
             fileInput.addEventListener('change', handleFileSelect);
             keywordsBtn.addEventListener('click', () => processExcelData('keywords'));
             sentenceBtn.addEventListener('click', () => processExcelData('sentence'));
             
-            // 調整容器大小
-            resizeContainer();
-            window.addEventListener('resize', resizeContainer);
-            
             // 自動載入遠程Excel資料
             loadRemoteExcel();
         }
-        
-        // 調整容器大小
-        function resizeContainer() {
+
+        // 調整Canvas大小
+        function resizeCanvas() {
             const container = document.querySelector('.canvas-container');
-            wordCloudContainer.style.width = container.clientWidth + 'px';
-            wordCloudContainer.style.height = container.clientHeight + 'px';
+            canvasWidth = container.clientWidth;
+            canvasHeight = container.clientHeight;
             
-            // 如果已有文字雲，重新渲染
+            canvas.width = canvasWidth;
+            canvas.height = canvasHeight;
+            
             if (words.length > 0) {
                 renderWordCloud();
             }
         }
-        
+
+        // 移除中文數字、阿拉伯數字和英文
+        function preprocessText(text) {
+            // 刪除中文數字
+            const chineseNums = ['零', '一', '二', '三', '四', '五', '六', '七', '八', '九', '十', '百', '千', '萬', '億'];
+            chineseNums.forEach(num => {
+                text = text.replace(new RegExp(num, 'g'), '');
+            });
+            
+            // 刪除阿拉伯數字
+            text = text.replace(/[0-9]+/g, '');
+            
+            // 刪除英文字
+            text = text.replace(/[a-zA-Z]+/g, '');
+            
+            return text;
+        }
+
+        // 檢查並移除無法翻譯的英文
+        function removeEnglishWords(text) {
+            // 檢查是否還有英文字母
+            return text.replace(/[a-zA-Z]+/g, '');
+        }
+
+        // 使用Google翻譯API進行中文到英文的翻譯
+        async function translateToEnglish(text) {
+            try {
+                updateStatus("模擬翻譯中文到英文...");
+                // 實際部署時，應使用真實的Google翻譯API
+                return await simulateTranslation(text, 'zh-TW', 'en');
+            } catch (error) {
+                console.error('翻譯過程出錯:', error);
+                updateStatus("翻譯過程出錯");
+                return text;
+            }
+        }
+
+        // 使用Google翻譯API進行英文到中文的翻譯
+        async function translateToChinese(text) {
+            try {
+                updateStatus("模擬翻譯英文到中文...");
+                // 實際部署時，應使用真實的Google翻譯API
+                return await simulateTranslation(text, 'en', 'zh-TW');
+            } catch (error) {
+                console.error('翻譯過程出錯:', error);
+                updateStatus("翻譯過程出錯");
+                return text;
+            }
+        }
+
+        // 模擬翻譯功能（實際部署時應替換為真實的Google翻譯API調用）
+        async function simulateTranslation(text, srcLang, targetLang) {
+            console.log(`模擬翻譯: ${srcLang} -> ${targetLang}`);
+            
+            // 延遲模擬API請求時間
+            await new Promise(resolve => setTimeout(resolve, 300));
+            
+            if (srcLang === 'zh-TW' && targetLang === 'en') {
+                // 中文 -> 英文的模擬翻譯
+                const commonWords = {
+                    '醫院': 'hospital',
+                    '醫生': 'doctor',
+                    '疾病': 'disease',
+                    '症狀': 'symptoms',
+                    '診斷': 'diagnosis',
+                    '治療': 'treatment',
+                    '藥物': 'medicine',
+                    '健康': 'health',
+                    '衛生': 'hygiene',
+                    '研究': 'research',
+                    '病毒': 'virus',
+                    '細菌': 'bacteria',
+                    '感染': 'infection',
+                    '頭痛': 'headache',
+                    '發燒': 'fever',
+                    '咳嗽': 'cough',
+                    '打噴嚏': 'sneeze',
+                    '疫苗': 'vaccine',
+                    '檢測': 'test',
+                    '預防': 'prevention',
+                    '保健': 'healthcare',
+                    '營養': 'nutrition',
+                    '飲食': 'diet',
+                    '運動': 'exercise',
+                    '睡眠': 'sleep',
+                    '心理': 'mental',
+                    '壓力': 'stress',
+                    '情緒': 'emotion',
+                    '抑鬱': 'depression',
+                    '焦慮': 'anxiety'
+                };
+                
+                // 簡單替換常見醫療詞彙
+                let result = text;
+                for (const [zh, en] of Object.entries(commonWords)) {
+                    result = result.replace(new RegExp(zh, 'g'), en);
+                }
+                
+                return result;
+            } else if (srcLang === 'en' && targetLang === 'zh-TW') {
+                // 英文 -> 中文的模擬翻譯
+                const commonWords = {
+                    'hospital': '醫院',
+                    'doctor': '醫生',
+                    'disease': '疾病',
+                    'symptoms': '症狀',
+                    'diagnosis': '診斷',
+                    'treatment': '治療',
+                    'medicine': '藥物',
+                    'health': '健康',
+                    'hygiene': '衛生',
+                    'research': '研究',
+                    'virus': '病毒',
+                    'bacteria': '細菌',
+                    'infection': '感染',
+                    'headache': '頭痛',
+                    'fever': '發燒',
+                    'cough': '咳嗽',
+                    'sneeze': '打噴嚏',
+                    'vaccine': '疫苗',
+                    'test': '檢測',
+                    'prevention': '預防',
+                    'healthcare': '保健',
+                    'nutrition': '營養',
+                    'diet': '飲食',
+                    'exercise': '運動',
+                    'sleep': '睡眠',
+                    'mental': '心理',
+                    'stress': '壓力',
+                    'emotion': '情緒',
+                    'depression': '抑鬱',
+                    'anxiety': '焦慮'
+                };
+                
+                // 簡單替換常見醫療詞彙
+                let result = text;
+                for (const [en, zh] of Object.entries(commonWords)) {
+                    result = result.replace(new RegExp(en, 'g'), zh);
+                }
+                
+                return result;
+            }
+            
+            // 默認返回原文
+            return text;
+        }
+
+        // 對英文文本進行NLP處理，只提取名詞
+        function extractNouns(englishText) {
+            console.log("進行NLP處理:", englishText);
+            
+            // 常見的英文停用詞和非名詞
+            const stopWords = ["the", "a", "an", "and", "or", "but", "is", "are", "was", "were", 
+                               "be", "being", "been", "have", "has", "had", "do", "does", "did", 
+                               "will", "would", "should", "can", "could", "may", "might", "must", 
+                               "shall", "to", "of", "for", "with", "about", "against", "between", 
+                               "into", "through", "during", "before", "after", "above", "below", 
+                               "from", "up", "down", "in", "out", "on", "off", "over", "under"];
+            
+            // 常見的動詞列表 (只保留名詞)
+            const verbs = ["go", "goes", "going", "went", "gone", "come", "comes", "coming", "came", 
+                          "take", "takes", "taking", "took", "taken", "make", "makes", "making", 
+                          "made", "see", "sees", "seeing", "saw", "seen", "know", "knows", "knowing", 
+                          "knew", "known", "want", "wants", "wanting", "wanted", "use", "uses", 
+                          "using", "used", "find", "finds", "finding", "found", "give", "gives", 
+                          "giving", "gave", "given", "tell", "tells", "telling", "told", "work", 
+                          "works", "working", "worked", "call", "calls", "calling", "called", 
+                          "try", "tries", "trying", "tried", "ask", "asks", "asking", "asked", 
+                          "need", "needs", "needing", "needed", "feel", "feels", "feeling", "felt", 
+                          "become", "becomes", "becoming", "became"];
+            
+            // 拆分文本為單詞
+            const words = englishText.split(/\s+/);
+            
+            // 過濾停用詞和動詞，只保留名詞
+            const nouns = words.filter(word => {
+                // 去除標點符號
+                word = word.replace(/[.,\/#!$%\^&\*;:{}=\-_`~()]/g, "").toLowerCase();
+                
+                // 移除短詞、停用詞和動詞，只保留可能的名詞
+                return word.length > 2 && !stopWords.includes(word) && !verbs.includes(word);
+            });
+            
+            return nouns.join(" ");
+        }
+
+        // 完整的文本處理流程
+        async function processText(text) {
+            try {
+                showLoading("處理文本中...");
+                
+                // 1. 預處理：刪除數字和英文
+                const cleanedText = preprocessText(text);
+                console.log("預處理後文本:", cleanedText);
+                updateStatus("已完成文本清理，刪除數字和英文...");
+                
+                // 2. 翻譯成英文
+                updateStatus("正在翻譯為英文...");
+                const englishText = await translateToEnglish(cleanedText);
+                console.log("英文翻譯:", englishText);
+                
+                // 3. NLP處理，只提取名詞
+                updateStatus("進行NLP處理，提取名詞...");
+                const processedEnglish = extractNouns(englishText);
+                console.log("NLP處理後:", processedEnglish);
+                
+                // 4. 翻譯回繁體中文
+                updateStatus("正在翻譯回繁體中文...");
+                const translatedChinese = await translateToChinese(processedEnglish);
+                console.log("翻譯回中文:", translatedChinese);
+                
+                // 5. 移除任何可能剩餘的英文
+                const finalChineseText = removeEnglishWords(translatedChinese);
+                console.log("最終處理後文本:", finalChineseText);
+                
+                hideLoading();
+                updateStatus("文本處理完成");
+                return finalChineseText;
+            } catch (error) {
+                console.error("文本處理出錯:", error);
+                hideLoading();
+                updateStatus("處理過程出錯，使用原文本");
+                return text; // 出錯時返回原文本
+            }
+        }
+
         // 載入遠程Excel檔案
         async function loadRemoteExcel() {
             showLoading("正在載入遠程Excel資料...");
@@ -196,35 +636,9 @@
                 console.error('載入遠程Excel失敗:', error);
                 updateStatus("無法載入遠程資料，請嘗試上傳本地Excel檔案。");
                 hideLoading();
-                
-                // 使用模擬資料進行測試
-                useSimulatedData();
             }
         }
-        
-        // 使用模擬資料
-        function useSimulatedData() {
-            // 模擬一些常見的健康諮詢問題
-            const simulatedData = [
-                ["請問醫生，我最近常常頭痛是怎麼回事？"],
-                ["糖尿病患者可以吃什麼水果？"],
-                ["高血壓需要注意什麼飲食習慣？"],
-                ["我的過敏症狀一直無法改善，有什麼方法嗎？"],
-                ["失眠很嚴重，除了藥物還有什麼方法可以改善？"],
-                ["肝功能指數偏高，需要如何調整生活習慣？"],
-                ["最近常常感到疲勞，可能是什麼問題？"],
-                ["兒童過敏體質如何增強免疫力？"],
-                ["中風後復健的最佳時間和方法是什麼？"],
-                ["如何預防季節性流感？有什麼食物或保健品推薦嗎？"],
-                ["關節疼痛應該做什麼運動比較好？"],
-                ["長期工作壓力大，心悸失眠，如何調適？"],
-                ["老年人骨質疏鬆應該補充什麼營養？"]
-            ];
-            
-            excelData = [["問題內容"], ...simulatedData];
-            updateStatus("已載入模擬資料，準備就緒。");
-        }
-        
+
         // 處理本地Excel檔案選擇
         function handleFileSelect(event) {
             const file = event.target.files[0];
@@ -247,7 +661,7 @@
             
             reader.readAsArrayBuffer(file);
         }
-        
+
         // 解析Excel資料
         function parseExcelData(data) {
             try {
@@ -270,9 +684,9 @@
                 updateStatus("解析Excel檔案時發生錯誤。");
             }
         }
-        
+
         // 處理Excel資料生成文字雲
-        function processExcelData(type) {
+        async function processExcelData(type) {
             if (!excelData || excelData.length === 0) {
                 updateStatus("請先載入Excel資料。");
                 return;
@@ -282,10 +696,13 @@
             
             // 清空之前的文字雲
             words = [];
+            if (animationId) {
+                cancelAnimationFrame(animationId);
+            }
             
-            // 收集第一欄的所有文本（跳過標題行）
+            // 收集第一欄的所有文本
             let allTexts = [];
-            for (let i = 1; i < excelData.length; i++) {
+            for (let i = 0; i < excelData.length; i++) {
                 const row = excelData[i];
                 if (row && row.length > 0 && row[0]) {
                     const text = String(row[0]).trim();
@@ -303,98 +720,98 @@
             
             // 根據類型處理文本
             setTimeout(async () => {
-                try {
-                    if (type === 'keywords') {
-                        await processKeywords(allTexts);
-                    } else {
-                        processSentences(allTexts);
-                    }
-                } catch (error) {
-                    console.error('處理文字時發生錯誤:', error);
-                    updateStatus("處理文字時發生錯誤，請重試。");
-                    hideLoading();
+                if (type === 'keywords') {
+                    await processKeywords(allTexts);
+                } else {
+                    await processSentences(allTexts);
                 }
             }, 50);
         }
-        
+
         // 處理關鍵詞
         async function processKeywords(texts) {
-            updateLoadingText("步驟1/5: 刪除數字和英文...");
-            
-            // 處理後的文本
-            const processedTexts = texts.map(text => {
-                // 移除中文數字
-                const chineseNums = ['零', '一', '二', '三', '四', '五', '六', '七', '八', '九', '十', '百', '千', '萬', '億'];
-                let processed = text;
+            try {
+                showLoading("正在處理關鍵詞...");
                 
-                chineseNums.forEach(num => {
-                    processed = processed.replace(new RegExp(num, 'g'), '');
+                // 對每行文本進行處理
+                const processedTexts = [];
+                for (let i = 0; i < texts.length; i++) {
+                    const text = texts[i];
+                    updateStatus(`處理文本 ${i+1}/${texts.length}...`);
+                    const processedText = await processText(text);
+                    processedTexts.push(processedText);
+                }
+                
+                // 分詞和統計詞頻
+                const wordFrequency = {};
+                const stopWords = getStopWords();
+                
+                processedTexts.forEach(text => {
+                    // 簡單的分詞（每個中文字符作為一個詞）
+                    const chars = text.split('');
+                    
+                    // 組合成2-4個字符的詞組
+                    const words = [];
+                    for (let i = 0; i < chars.length - 1; i++) {
+                        if (i < chars.length - 3) {
+                            words.push(chars.slice(i, i+4).join(''));
+                        }
+                        if (i < chars.length - 2) {
+                            words.push(chars.slice(i, i+3).join(''));
+                        }
+                        words.push(chars.slice(i, i+2).join(''));
+                    }
+                    
+                    // 統計詞頻
+                    words.forEach(word => {
+                        // 確保沒有英文字母
+                        if (/[a-zA-Z]/.test(word)) {
+                            return;
+                        }
+                        
+                        // 跳過停用詞、單字、非中文詞組
+                        if (word.length < 2 || stopWords.has(word) || !/^[\u4e00-\u9fa5]+$/.test(word)) {
+                            return;
+                        }
+                        
+                        if (wordFrequency[word]) {
+                            wordFrequency[word]++;
+                        } else {
+                            wordFrequency[word] = 1;
+                        }
+                    });
                 });
                 
-                // 移除阿拉伯數字
-                processed = processed.replace(/[0-9]/g, '');
+                // 轉換為數組並按詞頻排序
+                const wordArray = Object.entries(wordFrequency)
+                    .filter(([word, freq]) => freq > 1 && word.length >= 2)
+                    .sort((a, b) => b[1] - a[1])
+                    .slice(0, 100);
                 
-                // 移除英文
-                processed = processed.replace(/[a-zA-Z]/g, '');
+                // 創建詞雲項目
+                createWordCloudItems(wordArray);
+                hideLoading();
+                updateStatus(`已生成 ${wordArray.length} 個項目的文字雲。`);
                 
-                return processed;
-            });
-            
-            updateLoadingText("步驟2/5: 翻譯成英文...");
-            
-            // 將處理後的文本合併併翻譯成英文
-            const combinedText = processedTexts.join('. ');
-            const translatedToEnglish = await translateText(combinedText, 'zh-TW', 'en');
-            
-            updateLoadingText("步驟3/5: NLP處理提取名詞...");
-            
-            // 提取英文名詞
-            const nouns = extractNouns(translatedToEnglish);
-            
-            updateLoadingText("步驟4/5: 翻譯回繁體中文...");
-            
-            // 將名詞翻譯回繁體中文
-            const translatedToChinese = await translateText(nouns.join(' '), 'en', 'zh-TW');
-            
-            updateLoadingText("步驟5/5: 產生文字雲...");
-            
-            // 分詞和統計詞頻
-            const wordFrequency = {};
-            
-            // 將翻譯回的中文文本分詞
-            const chineseWords = translatedToChinese.split(/[\s,.，。、；：！？「」『』（）]+/);
-            
-            // 統計詞頻
-            chineseWords.forEach(word => {
-                word = word.trim();
-                if (word && word.length >= 2) {
-                    if (wordFrequency[word]) {
-                        wordFrequency[word]++;
-                    } else {
-                        wordFrequency[word] = 1;
-                    }
-                }
-            });
-            
-            // 轉換為數組並按詞頻排序
-            const wordArray = Object.entries(wordFrequency)
-                .filter(([word, freq]) => freq > 0 && word.length >= 2)
-                .sort((a, b) => b[1] - a[1])
-                .slice(0, 100);
-            
-            // 創建詞雲項目
-            createWordCloudItems(wordArray);
+            } catch (error) {
+                console.error("處理關鍵詞出錯:", error);
+                hideLoading();
+                updateStatus("處理關鍵詞時發生錯誤。");
+            }
         }
-        
+
         // 處理整句語意
-        function processSentences(texts) {
+        async function processSentences(texts) {
             // 去重和過濾
             const uniqueSentences = new Set();
             const sentenceFrequency = {};
             
             texts.forEach(text => {
+                // 移除所有數字
+                text = text.replace(/[0-9]+/g, '');
+                
                 // 如果是純中文句子且長度合適，則保留
-                if (text.length > 3 && text.length < 30) {
+                if (/^[\u4e00-\u9fa5，。！？、：；""''（）【】《》]+$/.test(text) && text.length > 3 && text.length < 30) {
                     uniqueSentences.add(text);
                     
                     if (sentenceFrequency[text]) {
@@ -412,175 +829,10 @@
             
             // 創建詞雲項目
             createWordCloudItems(sentenceArray);
+            hideLoading();
+            updateStatus(`已生成 ${sentenceArray.length} 個句子的文字雲。`);
         }
-        
-        // 翻譯文本 (模擬Google翻譯API)
-        async function translateText(text, sourceLang, targetLang) {
-            // 模擬翻譯延遲
-            await new Promise(resolve => setTimeout(resolve, 500));
-            
-            // 注意：在實際環境中，您需要使用真實的Google翻譯API
-            // 以下是使用Google Cloud Translation API的示例代碼（需要API密鑰）:
-            /*
-            const apiKey = 'YOUR_GOOGLE_API_KEY'; // 請替換為您的API密鑰
-            const url = `https://translation.googleapis.com/language/translate/v2?key=${apiKey}`;
-            
-            const response = await fetch(url, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    q: text,
-                    source: sourceLang,
-                    target: targetLang,
-                    format: 'text'
-                })
-            });
-            
-            const data = await response.json();
-            return data.data.translations[0].translatedText;
-            */
-            
-            // 模擬翻譯結果
-            if (sourceLang === 'zh-TW' && targetLang === 'en') {
-                // 中文 -> 英文模擬翻譯映射
-                const zhToEnMap = {
-                    '頭痛': 'headache',
-                    '糖尿病': 'diabetes',
-                    '水果': 'fruit',
-                    '高血壓': 'hypertension',
-                    '飲食習慣': 'dietary habits',
-                    '過敏': 'allergy',
-                    '症狀': 'symptoms',
-                    '改善': 'improve',
-                    '失眠': 'insomnia',
-                    '藥物': 'medication',
-                    '肝功能': 'liver function',
-                    '指數': 'index',
-                    '生活習慣': 'lifestyle',
-                    '疲勞': 'fatigue',
-                    '兒童': 'children',
-                    '免疫力': 'immunity',
-                    '中風': 'stroke',
-                    '復健': 'rehabilitation',
-                    '預防': 'prevention',
-                    '季節性': 'seasonal',
-                    '流感': 'flu',
-                    '保健品': 'health supplements',
-                    '關節': 'joint',
-                    '疼痛': 'pain',
-                    '運動': 'exercise',
-                    '壓力': 'stress',
-                    '心悸': 'palpitation',
-                    '調適': 'adjustment',
-                    '老年人': 'elderly',
-                    '骨質疏鬆': 'osteoporosis',
-                    '營養': 'nutrition',
-                    '醫生': 'doctor',
-                    '方法': 'method',
-                    '時間': 'time',
-                    '食物': 'food'
-                };
-                
-                let translated = text;
-                Object.entries(zhToEnMap).forEach(([zh, en]) => {
-                    translated = translated.replace(new RegExp(zh, 'g'), en);
-                });
-                
-                // 對於沒有明確映射的詞，返回一些通用英文
-                return translated || 'health issue consultation';
-            } else if (sourceLang === 'en' && targetLang === 'zh-TW') {
-                // 英文 -> 中文模擬翻譯映射
-                const enToZhMap = {
-                    'headache': '頭痛',
-                    'diabetes': '糖尿病',
-                    'fruit': '水果',
-                    'hypertension': '高血壓',
-                    'dietary habits': '飲食習慣',
-                    'diet': '飲食',
-                    'allergy': '過敏',
-                    'symptoms': '症狀',
-                    'improve': '改善',
-                    'insomnia': '失眠',
-                    'medication': '藥物',
-                    'liver function': '肝功能',
-                    'index': '指數',
-                    'lifestyle': '生活習慣',
-                    'fatigue': '疲勞',
-                    'children': '兒童',
-                    'immunity': '免疫力',
-                    'stroke': '中風',
-                    'rehabilitation': '復健',
-                    'prevention': '預防',
-                    'seasonal': '季節性',
-                    'flu': '流感',
-                    'health supplements': '保健品',
-                    'joint': '關節',
-                    'pain': '疼痛',
-                    'exercise': '運動',
-                    'stress': '壓力',
-                    'palpitation': '心悸',
-                    'adjustment': '調適',
-                    'elderly': '老年人',
-                    'osteoporosis': '骨質疏鬆',
-                    'nutrition': '營養',
-                    'doctor': '醫生',
-                    'method': '方法',
-                    'time': '時間',
-                    'food': '食物',
-                    'blood': '血液',
-                    'pressure': '壓力',
-                    'disease': '疾病',
-                    'medicine': '藥物',
-                    'treatment': '治療',
-                    'health': '健康',
-                    'patient': '病患',
-                    'hospital': '醫院',
-                    'clinic': '診所'
-                };
-                
-                let translated = text.toLowerCase();
-                Object.entries(enToZhMap).forEach(([en, zh]) => {
-                    translated = translated.replace(new RegExp('\\b' + en + '\\b', 'gi'), zh);
-                });
-                
-                // 對於沒有明確映射的詞，返回原詞
-                return translated || '健康諮詢';
-            }
-            
-            // 默認返回原文
-            return text;
-        }
-        
-        // 提取英文名詞 (簡單NLP處理)
-        function extractNouns(englishText) {
-            // 英文停用詞和非名詞詞彙
-            const stopWords = new Set([
-                "a", "an", "the", "and", "or", "but", "if", "because", "as", "what", "when",
-                "where", "how", "why", "which", "who", "whom", "this", "that", "these", "those",
-                "am", "is", "are", "was", "were", "be", "been", "being",
-                "have", "has", "had", "do", "does", "did", "will", "shall", "should", "would",
-                "can", "could", "may", "might", "must", "ought", "to", "of", "in", "on", "at",
-                "by", "with", "about", "against", "between", "into", "through", "during",
-                "before", "after", "above", "below", "from", "up", "down", "out", "off", "over",
-                "under", "again", "further", "then", "once", "here", "there", "when", "where",
-                "why", "how", "all", "any", "both", "each", "few", "more", "most", "other",
-                "some", "such", "no", "nor", "not", "only", "own", "same", "so", "than", "too",
-                "very", "s", "t", "can", "will", "just", "don", "don't"
-            ]);
-            
-            // 拆分文本為單詞
-            const words = englishText.toLowerCase().match(/\b\w+\b/g) || [];
-            
-            // 過濾停用詞，僅保留可能的名詞
-            return words.filter(word => 
-                word.length > 2 && 
-                !stopWords.has(word) && 
-                !/^\d+$/.test(word) // 排除純數字
-            );
-        }
-        
+
         // 創建詞雲項目
         function createWordCloudItems(items) {
             // 獲取最大和最小頻率
@@ -593,29 +845,45 @@
                 // 計算字體大小（根據頻率）
                 const fontSize = calculateFontSize(freq, minFreq, maxFreq);
                 
+                // 隨機選擇字體
+                const fontFamily = CHINESE_FONTS[Math.floor(Math.random() * CHINESE_FONTS.length)];
+                
                 // 隨機顏色
                 const hue = Math.floor(Math.random() * 360);
-                const color = `hsl(${hue}, 70%, 50%)`;
+                const saturation = 70 + Math.random() * 30;
+                const lightness = 45 + Math.random() * 10;
+                const color = `hsl(${hue}, ${saturation}%, ${lightness}%)`;
+                
+                // 初始位置（隨機）
+                const x = Math.random() * canvasWidth;
+                const y = Math.random() * canvasHeight;
+                
+                // 隨機移動方向和速度
+                const dx = (Math.random() - 0.5) * 2;
+                const dy = (Math.random() - 0.5) * 2;
                 
                 return {
                     text,
-                    size: fontSize,
-                    color: color,
+                    fontSize,
+                    fontFamily,
+                    color,
+                    x,
+                    y,
+                    dx,
+                    dy,
                     frequency: freq
                 };
             });
             
-            // 渲染詞雲
+            // 開始渲染
             renderWordCloud();
-            hideLoading();
-            updateStatus(`已生成 ${words.length} 個項目的文字雲。`);
         }
-        
+
         // 計算字體大小
         function calculateFontSize(freq, minFreq, maxFreq) {
             // 字體大小範圍
-            const minFontSize = 14;
-            const maxFontSize = 60;
+            const minFontSize = 16;
+            const maxFontSize = 48;
             
             // 如果只有一個頻率，直接返回中間大小
             if (minFreq === maxFreq) {
@@ -626,63 +894,109 @@
             const normalized = (freq - minFreq) / (maxFreq - minFreq);
             return minFontSize + normalized * (maxFontSize - minFontSize);
         }
-        
+
+        // 獲取停用詞表
+        function getStopWords() {
+            // 中文常見停用詞
+            const stopWordsList = [
+                "的", "了", "和", "是", "在", "我", "有", "你", "他", "她", "它", "們", "這", "那", "就",
+                "也", "而", "但", "於", "以", "與", "或", "等", "如", "為", "與", "都", "要", "各", "讓",
+                "得", "著", "給", "從", "到", "中", "上", "下", "前", "後", "內", "外", "其", "只", "因",
+                "為了", "所以", "因為", "可以", "不能", "沒有", "什麼", "如何", "怎麼", "為什麼", "哪裡",
+                "請問", "告訴我", "能否", "是否", "能不能", "有沒有", "如果", "當", "而且", "並且", "不但",
+                "雖然", "可是", "不過", "然而", "因此", "所以", "只要", "只有", "除了", "一些", "一個", "一樣",
+                "一種", "我們", "你們", "他們", "她們", "它們", "那些", "這些", "每個", "每種", "每次", "每當"
+            ];
+            
+            return new Set(stopWordsList);
+        }
+
         // 渲染詞雲
         function renderWordCloud() {
-            // 清空容器
-            wordCloudContainer.innerHTML = '';
+            if (words.length === 0) return;
             
-            const width = wordCloudContainer.clientWidth;
-            const height = wordCloudContainer.clientHeight;
+            // 清空Canvas
+            ctx.clearRect(0, 0, canvasWidth, canvasHeight);
             
-            // 創建D3詞雲
-            const layout = d3.layout.cloud()
-                .size([width, height])
-                .words(words.map(d => ({ ...d, text: d.text })))
-                .padding(5)
-                .rotate(() => 0) // 不旋轉
-                .font(DEFAULT_CHINESE_FONT)
-                .fontSize(d => d.size)
-                .on("end", draw);
+            // 繪製橢圓邊界
+            drawOvalBoundary();
             
-            layout.start();
-            
-            // 繪製詞雲
-            function draw(words) {
-                const svg = d3.select("#wordCloudContainer").append("svg")
-                    .attr("width", layout.size()[0])
-                    .attr("height", layout.size()[1])
-                    .append("g")
-                    .attr("transform", `translate(${layout.size()[0] / 2},${layout.size()[1] / 2})`);
+            // 繪製每個詞
+            words.forEach(word => {
+                // 更新位置
+                word.x += word.dx;
+                word.y += word.dy;
                 
-                svg.selectAll("text")
-                    .data(words)
-                    .enter().append("text")
-                    .style("font-size", d => `${d.size}px`)
-                    .style("font-family", DEFAULT_CHINESE_FONT)
-                    .style("fill", d => d.color)
-                    .attr("text-anchor", "middle")
-                    .attr("transform", d => `translate(${d.x},${d.y})`)
-                    .text(d => d.text);
+                // 檢查是否觸碰橢圓邊界
+                checkOvalBoundaryCollision(word);
+                
+                // 繪製文字
+                ctx.font = `bold ${word.fontSize}px ${word.fontFamily}`;
+                ctx.fillStyle = word.color;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(word.text, word.x, word.y);
+            });
+            
+            // 繼續動畫
+            animationId = requestAnimationFrame(renderWordCloud);
+        }
+
+        // 繪製橢圓邊界
+        function drawOvalBoundary() {
+            const centerX = canvasWidth / 2;
+            const centerY = canvasHeight / 2;
+            const radiusX = canvasWidth * 0.45;
+            const radiusY = canvasHeight * 0.45;
+            
+            ctx.beginPath();
+            ctx.ellipse(centerX, centerY, radiusX, radiusY, 0, 0, Math.PI * 2);
+            ctx.strokeStyle = 'rgba(41, 128, 185, 0.3)';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+        }
+
+        // 檢查橢圓邊界碰撞
+        function checkOvalBoundaryCollision(word) {
+            const centerX = canvasWidth / 2;
+            const centerY = canvasHeight / 2;
+            const radiusX = canvasWidth * 0.45;
+            const radiusY = canvasHeight * 0.45;
+            
+            // 計算詞距離中心的標準化距離
+            const dx = (word.x - centerX) / radiusX;
+            const dy = (word.y - centerY) / radiusY;
+            const distance = dx * dx + dy * dy;
+            
+            // 如果超出橢圓邊界，則反彈
+            if (distance > 1) {
+                // 計算反彈方向
+                const angle = Math.atan2(dy, dx);
+                const normalX = Math.cos(angle);
+                const normalY = Math.sin(angle);
+                
+                // 反彈
+                const dot = word.dx * normalX + word.dy * normalY;
+                word.dx = word.dx - 2 * dot * normalX;
+                word.dy = word.dy - 2 * dot * normalY;
+                
+                // 確保詞在橢圓內
+                word.x = centerX + radiusX * 0.98 * Math.cos(angle);
+                word.y = centerY + radiusY * 0.98 * Math.sin(angle);
             }
         }
-        
+
         // 顯示載入中
         function showLoading(message) {
             loadingDiv.style.display = 'flex';
-            loadingText.textContent = message || "處理中，請稍候...";
+            document.querySelector('.loading-text').textContent = message || "處理中，請稍候...";
         }
-        
-        // 更新載入文字
-        function updateLoadingText(message) {
-            loadingText.textContent = message || "處理中...";
-        }
-        
+
         // 隱藏載入中
         function hideLoading() {
             loadingDiv.style.display = 'none';
         }
-        
+
         // 更新狀態信息
         function updateStatus(message) {
             statusDiv.textContent = message;
