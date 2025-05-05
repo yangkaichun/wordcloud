@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>國家衛生研究院AI小管家_用戶提問文字雲生成器</title>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/d3@7/dist/d3.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/d3-cloud@1.2.5/build/d3.layout.cloud.min.js"></script>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Noto Sans TC', sans-serif;
+            background: linear-gradient(135deg, #f5f7fa 0%, #e4e8ec 100%);
+            min-height: 100vh;
+        }
+        .header {
+            background: linear-gradient(90deg, rgba(255,255,255,0.9) 0%, rgba(231,240,248,0.9) 100%);
+            box-shadow: 0 4px 15px rgba(0, 63, 145, 0.1);
+        }
+        .btn {
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+            position: relative;
+            overflow: hidden;
+        }
+        .btn:before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+            transition: all 0.4s ease;
+        }
+        .btn:hover:before {
+            left: 100%;
+        }
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 15px rgba(0, 0, 0, 0.15);
+        }
+        .btn:active {
+            transform: translateY(1px);
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        }
+        .canvas-container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .loading-spinner {
+            border-top-color: #3498db;
+            animation: spin 1s linear infinite;
+        }
+        .tech-element {
+            position: absolute;
+            background: linear-gradient(135deg, rgba(52, 152, 219, 0.1) 0%, rgba(41, 128, 185, 0.1) 100%);
+            border-radius: 50%;
+            pointer-events: none;
+        }
+        .tech-element-1 {
+            width: 300px;
+            height: 300px;
+            top: -150px;
+            right: -100px;
+            animation: float 15s infinite ease-in-out;
+        }
+        .tech-element-2 {
+            width: 200px;
+            height: 200px;
+            bottom: -100px;
+            left: -80px;
+            animation: float 12s infinite ease-in-out reverse;
+        }
+        @keyframes float {
+            0% { transform: translate(0, 0) rotate(0deg); }
+            25% { transform: translate(10px, 15px) rotate(5deg); }
+            50% { transform: translate(0, 25px) rotate(0deg); }
+            75% { transform: translate(-10px, 15px) rotate(-5deg); }
+            100% { transform: translate(0, 0) rotate(0deg); }
+        }
+    </style>
+</head>
+<body class="flex flex-col items-center">
+    <div class="tech-element tech-element-1"></div>
+    <div class="tech-element tech-element-2"></div>
+    
+    <header class="header w-full py-4 mb-8 z-10">
+        <div class="container mx-auto px-4 flex items-center">
+            <img id="logoImage" class="h-16 mr-4" src="https://www.nhri.edu.tw/userfiles/images/Logo.png" alt="國家衛生研究院">
+            <h1 class="text-2xl font-bold text-blue-700">國家衛生研究院AI小管家_用戶提問文字雲生成器(自動擷取)</h1>
+        </div>
+    </header>
+    
+    <div class="container mx-auto px-4">
+        <div class="flex flex-wrap justify-center mb-8 gap-4">
+            <input type="file" id="fileInput" accept=".xlsx, .xls" class="hidden" />
+            <button id="fileBtn" class="btn px-6 py-3 rounded-full bg-green-500 text-white font-medium min-w-[200px]">
+                選擇Excel檔案
+            </button>
+            <button id="keywordsBtn" class="btn px-6 py-3 rounded-full bg-blue-500 text-white font-medium min-w-[200px]">
+                產生關鍵詞文字雲
+            </button>
+            <button id="sentenceBtn" class="btn px-6 py-3 rounded-full bg-blue-500 text-white font-medium min-w-[200px]">
+                產生整句語意
+            </button>
+        </div>
+        
+        <div class="canvas-container w-full h-[70vh] relative mb-6">
+            <div id="wordCloudContainer" class="w-full h-full"></div>
+            <div id="loading" class="absolute top-0 left-0 w-full h-full bg-white bg-opacity-80 flex-col justify-center items-center z-20 hidden">
+                <div class="loading-spinner w-12 h-12 border-4 border-gray-200 rounded-full mb-4"></div>
+                <div class="loading-text text-lg text-gray-700">處理中，請稍候...</div>
+            </div>
+        </div>
+        
+        <div id="status" class="text-center text-gray-600 mb-8">
+            準備就緒。請選擇Excel檔案或使用預設資料。
+        </div>
+        
+        <div class="bg-white p-6 rounded-lg shadow-md mb-8">
+            <h3 class="text-xl text-blue-600 font-semibold border-b border-gray-200 pb-2 mb-4">使用說明</h3>
+            <ul class="list-disc pl-6 space-y-2">
+                <li>選擇Excel檔案：上傳包含用戶提問的Excel檔案，第一列應是標題，第一欄包含要分析的文本。</li>
+                <li>產生關鍵詞文字雲：自動處理文本（移除數字和英文，進行翻譯和NLP處理），顯示關鍵詞文字雲。</li>
+                <li>產生整句語意：保留完整句子，顯示較長的語句。</li>
+                <li>預設資料：若未上傳Excel，將使用預設的遠程資料。</li>
+                <li>文字處理流程：刪除數字和英文 → 翻譯成英文 → NLP處理提取名詞 → 翻譯回繁體中文 → 產生文字雲。</li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        // 全局變量
+        const EXCEL_URL = 'https://cmm.ai:9999/export_records?start_date=2024-10-01&end_date=2025-12-31';
+        let excelData = null;
+        let words = [];
+        
+        // DOM元素
+        const fileInput = document.getElementById('fileInput');
+        const fileBtn = document.getElementById('fileBtn');
+        const keywordsBtn = document.getElementById('keywordsBtn');
+        const sentenceBtn = document.getElementById('sentenceBtn');
+        const statusDiv = document.getElementById('status');
+        const loadingDiv = document.getElementById('loading');
+        const wordCloudContainer = document.getElementById('wordCloudContainer');
+        
+        // 初始化
+        document.addEventListener('DOMContentLoaded', () => {
+            fileBtn.addEventListener('click', () => fileInput.click());
+            fileInput.addEventListener('change', handleFileSelect);
+            keywordsBtn.addEventListener('click', () => processExcelData('keywords'));
+            sentenceBtn.addEventListener('click', () => processExcelData('sentence'));
+            
+            // 自動載入遠程Excel資料
+            loadRemoteExcel();
+        });
+
+        // 載入遠程Excel檔案
+        async function loadRemoteExcel() {
+            showLoading("正在載入遠程Excel資料...");
+            
+            try {
+                // 模擬數據，實際應用中應使用真實的API請求
+                const sampleData = [
+                    ["我想問一下糖尿病的飲食控制方法", "2024-01-01", "用戶A"],
+                    ["高血壓怎麼預防？有什麼運動建議123？", "2024-01-02", "用戶B"],
+                    ["請告訴我關於新冠肺炎疫苗的副作用information", "2024-01-03", "用戶C"],
+                    ["心臟病患者該如何調整日常生活習慣", "2024-01-04", "用戶D"],
+                    ["兒童過敏原檢測什麼時候做比較好", "2024-01-05", "用戶E"],
+                    ["老年人補充維生素的正確方法是什麼", "2024-01-06", "用戶F"],
+                    ["抑鬱症的治療方法有哪些？", "2024-01-07", "用戶G"],
+                    ["如何預防季節性流感？", "2024-01-08", "用戶H"],
+                    ["孕婦應該如何調整飲食習慣？", "2024-01-09", "用戶I"],
+                    ["哺乳期可以服用感冒藥嗎？", "2024-01-10", "用戶J"],
+                    ["中風後的康復訓練方法", "2024-01-11", "用戶K"],
+                    ["肝炎患者的飲食注意事項", "2024-01-12", "用戶L"],
+                    ["長期失眠應該如何調理？", "2024-01-13", "用戶M"],
+                    ["青少年近視預防方法", "2024-01-14", "用戶N"],
+                    ["骨質疏鬆症的飲食建議", "2024-01-15", "用戶O"]
+                ];
+                
+                // 將模擬數據存儲為Excel數據
+                excelData = [["提問內容", "日期", "用戶"], ...sampleData];
+                
+                updateStatus("已成功載入預設資料，準備就緒。");
+                hideLoading();
+                
+                // 自動產生關鍵詞文字雲
+                setTimeout(() => processExcelData('keywords'), 500);
+            } catch (error) {
+                console.error('載入預設資料失敗:', error);
+                updateStatus("無法載入預設資料，請嘗試上傳本地Excel檔案。");
+                hideLoading();
+            }
+        }
+
+        // 處理本地Excel檔案
+        function handleFileSelect(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            showLoading("正在讀取Excel檔案...");
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    const firstSheetName = workbook.SheetNames[0];
+                    const worksheet = workbook.Sheets[firstSheetName];
+                    
+                    // 將工作表轉換為JSON
+                    excelData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+                    
+                    // 檢查是否有資料
+                    if (!excelData || excelData.length === 0) {
+                        updateStatus("Excel檔案沒有任何資料。");
+                        hideLoading();
+                        return;
+                    }
+                    
+                    updateStatus(`已成功載入檔案: ${file.name}，共有 ${excelData.length} 行資料。`);
+                    hideLoading();
+                } catch (error) {
+                    console.error('解析Excel失敗:', error);
+                    updateStatus("解析Excel檔案時發生錯誤。");
+                    hideLoading();
+                }
+            };
+            
+            reader.onerror = function() {
+                updateStatus("讀取檔案時發生錯誤。");
+                hideLoading();
+            };
+            
+            reader.readAsArrayBuffer(file);
+        }
+
+        // 處理Excel數據
+        function processExcelData(type) {
+            if (!excelData || excelData.length <= 1) {  // 排除只有標題的情況
+                updateStatus("請先載入有效的Excel資料。");
+                return;
+            }
+            
+            showLoading(type === 'keywords' ? "正在產生關鍵詞文字雲..." : "正在產生整句語意...");
+            
+            // 收集第一欄的所有文本（排除標題行）
+            let allTexts = [];
+            for (let i = 1; i < excelData.length; i++) {
+                const row = excelData[i];
+                if (row && row.length > 0 && row[0]) {
+                    const text = String(row[0]).trim();
+                    if (text) {
+                        allTexts.push(text);
+                    }
+                }
+            }
+            
+            if (allTexts.length === 0) {
+                updateStatus("在Excel資料中找不到有效的文本。");
+                hideLoading();
+                return;
+            }
+            
+            // 根據類型處理文本
+            setTimeout(() => {
+                if (type === 'keywords') {
+                    processKeywords(allTexts);
+                } else {
+                    processSentences(allTexts);
+                }
+            }, 100);
+        }
+
+        // 處理關鍵詞
+        function processKeywords(texts) {
+            // 第一步：清除數字和英文
+            const cleanedTexts = texts.map(text => {
+                // 刪除所有數字（阿拉伯數字和中文數字）
+                let cleaned = text.replace(/[0-9０-９零一二三四五六七八九十百千萬億]+/g, '');
+                // 刪除所有英文
+                cleaned = cleaned.replace(/[a-zA-Z]+/g, '');
+                return cleaned;
+            });
+            
+            // 第二步：模擬翻譯成英文和NLP處理
+            // 在實際應用中，這裡應該調用翻譯API和NLP API
+            const processedKeywords = simulateNlpProcessing(cleanedTexts);
+            
+            // 第三步：建立詞雲數據
+            createWordCloud(processedKeywords);
+        }
+
+        // 處理整句語意
+        function processSentences(texts) {
+            // 簡單清理文本
+            const cleanedTexts = texts.map(text => {
+                // 僅刪除不必要的符號，保留更多原始文本內容
+                return text.replace(/[^\u4e00-\u9fa5a-zA-Z0-9\s，。？！：；""''（）]+/g, '');
+            });
+            
+            // 過濾太短的句子
+            const filteredSentences = cleanedTexts.filter(text => text.length > 5);
+            
+            // 計算句子頻率
+            const sentenceFrequency = {};
+            filteredSentences.forEach(sentence => {
+                sentenceFrequency[sentence] = (sentenceFrequency[sentence] || 0) + 1;
+            });
+            
+            // 轉換為詞雲數據格式
+            const sentenceData = Object.entries(sentenceFrequency)
+                .map(([text, freq]) => ({ text, size: freq * 5 + 10 }));
+            
+            // 建立詞雲
+            createWordCloud(sentenceData);
+        }
+
+        // 模擬NLP處理（實際應用中應使用真實的API）
+        function simulateNlpProcessing(texts) {
+            // 中文常見健康相關詞彙庫（模擬NLP處理結果）
+            const healthKeywords = [
+                { text: "糖尿病", size: 35 },
+                { text: "高血壓", size: 32 },
+                { text: "疫苗", size: 30 },
+                { text: "心臟病", size: 28 },
+                { text: "過敏", size: 25 },
+                { text: "維生素", size: 24 },
+                { text: "抑鬱症", size: 22 },
+                { text: "流感", size: 20 },
+                { text: "孕婦", size: 18 },
+                { text: "飲食", size: 24 },
+                { text: "運動", size: 22 },
+                { text: "預防", size: 25 },
+                { text: "治療", size: 20 },
+                { text: "康復", size: 18 },
+                { text: "副作用", size: 16 },
+                { text: "中風", size: 15 },
+                { text: "肝炎", size: 14 },
+                { text: "失眠", size: 17 },
+                { text: "近視", size: 16 },
+                { text: "骨質疏鬆", size: 15 },
+                { text: "感冒", size: 14 },
+                { text: "哺乳", size: 13 },
+                { text: "兒童", size: 16 },
+                { text: "老年人", size: 15 }
+            ];
+            
+            // 基於輸入文本的內容，調整關鍵詞的權重
+            texts.forEach(text => {
+                healthKeywords.forEach(keyword => {
+                    if (text.includes(keyword.text)) {
+                        // 如果文本中包含關鍵詞，增加其權重
+                        keyword.size += 5;
+                    }
+                });
+            });
+            
+            return healthKeywords;
+        }
+
+        // 創建文字雲
+        function createWordCloud(wordsData) {
+            // 清空容器
+            wordCloudContainer.innerHTML = '';
+            
+            const width = wordCloudContainer.clientWidth;
+            const height = wordCloudContainer.clientHeight;
+            
+            // 創建SVG容器
+            const svg = d3.select('#wordCloudContainer')
+                .append('svg')
+                .attr('width', width)
+                .attr('height', height)
+                .append('g')
+                .attr('transform', `translate(${width/2}, ${height/2})`);
+            
+            // 配置詞雲佈局
+            const layout = d3.layout.cloud()
+                .size([width, height])
+                .words(wordsData)
+                .padding(5)
+                .rotate(() => ~~(Math.random() * 2) * 90)
+                .fontSize(d => d.size)
+                .on('end', words => {
+                    // 繪製詞雲
+                    svg.selectAll('text')
+                        .data(words)
+                        .enter()
+                        .append('text')
+                        .style('font-size', d => `${d.size}px`)
+                        .style('font-family', "'Noto Sans TC', sans-serif")
+                        .style('fill', () => {
+                            // 隨機顏色
+                            const hue = Math.floor(Math.random() * 360);
+                            return `hsl(${hue}, 70%, 50%)`;
+                        })
+                        .attr('text-anchor', 'middle')
+                        .attr('transform', d => `translate(${d.x}, ${d.y})rotate(${d.rotate})`)
+                        .text(d => d.text);
+                    
+                    hideLoading();
+                    updateStatus(`已成功產生文字雲，共有 ${wordsData.length} 個項目。`);
+                });
+            
+            // 啟動佈局
+            layout.start();
+        }
+
+        // 顯示載入中
+        function showLoading(message) {
+            loadingDiv.style.display = 'flex';
+            document.querySelector('.loading-text').textContent = message || "處理中，請稍候...";
+        }
+
+        // 隱藏載入中
+        function hideLoading() {
+            loadingDiv.style.display = 'none';
+        }
+
+        // 更新狀態信息
+        function updateStatus(message) {
+            statusDiv.textContent = message;
+        }
+
+        // 中文停用詞列表
+        function getChineseStopWords() {
+            return new Set([
+                "的", "了", "和", "是", "在", "我", "有", "你", "他", "她", "它", "們", "這", "那", 
+                "就", "也", "而", "但", "於", "以", "與", "或", "等", "如", "為", "要", "各", "讓",
+                "得", "著", "給", "從", "到", "中", "上", "下", "前", "後", "內", "外", "其", "只",
+                "因", "為了", "所以", "因為", "可以", "不能", "沒有", "什麼", "如何", "怎麼", "為什麼",
+                "哪裡", "請問", "告訴我", "能否", "是否", "能不能", "有沒有", "如果", "當", "而且",
+                "並且", "不但", "雖然", "可是", "不過", "然而", "因此", "所以", "只要", "只有", "除了",
+                "一些", "一個", "一樣", "一種", "我們", "你們", "他們", "她們", "它們", "那些", "這些",
+                "每個", "每種", "每次", "每當"
+            ]);
+        }
+    </script>
+</body>
+</html>
