@@ -420,7 +420,7 @@
             // 注意：在實際環境中，您需要使用真實的Google翻譯API
             // 以下是使用Google Cloud Translation API的示例代碼（需要API密鑰）:
             
-            const apiKey = 'AIzaSyCZzmf0DWACYHiShdqlrh4kNS5UOxxJGu8'; // 請替換為您的API密鑰
+          /*  const apiKey = 'AIzaSyCZzmf0DWACYHiShdqlrh4kNS5UOxxJGu8'; // 請替換為您的API密鑰
             const url = `https://translation.googleapis.com/language/translate/v2?key=${apiKey}`;
             
             const response = await fetch(url, {
@@ -435,7 +435,7 @@
                     format: 'text'
                 })
             });
-            
+            */
             const data = await response.json();
             return data.data.translations[0].translatedText;
             
