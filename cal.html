@@ -3,209 +3,187 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>資料匯出</title>
-    <style>
-        body {
-            font-family: sans-serif;
-            margin: 20px;
-        }
-        .controls {
-            margin-bottom: 20px;
-            display: flex;
-            align-items: center;
-            gap: 10px; /* Adds space between elements */
-        }
-        .controls label {
-            margin-right: 5px;
-        }
-        .controls input[type="date"] {
-            padding: 8px;
-            border: 1px solid #ccc;
-            border-radius: 4px;
-        }
-        .controls button {
-            padding: 10px 15px;
-            background-color: #007bff;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-        }
-        .controls button:hover {
-            background-color: #0056b3;
-        }
-        #recordCount {
-            margin-bottom: 10px;
-            font-weight: bold;
-        }
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 20px;
-        }
-        th, td {
-            border: 1px solid #ddd;
-            padding: 8px;
-            text-align: left;
-        }
-        th {
-            background-color: #f2f2f2;
-        }
-        .loading-message, .error-message {
-            margin-top: 10px;
-            padding: 10px;
-            border-radius: 4px;
-        }
-        .loading-message {
-            background-color: #eef;
-            border: 1px solid #aac;
-        }
-        .error-message {
-            background-color: #fee;
-            border: 1px solid #caa;
-            color: #a00;
-        }
-    </style>
+    <title>資料匯出系統</title>
+    <script src="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.0.0/css/all.min.css">
 </head>
-<body>
-
-    <h1>資料匯出</h1>
-
-    <div class="controls">
-        <label for="startDate">起始日：</label>
-        <input type="date" id="startDate" name="startDate">
-
-        <label for="endDate">結束日：</label>
-        <input type="date" id="endDate" name="endDate">
-
-        <button id="fetchDataButton">抓取資料</button>
-    </div>
-
-    <div id="recordCount"></div>
-    <div id="dataTableContainer">
-        <table id="dataTable">
-            <thead>
+<body class="bg-gray-100 p-6">
+    <div class="max-w-6xl mx-auto bg-white rounded-xl shadow-md p-8">
+        <h1 class="text-2xl font-bold text-center mb-6">資料匯出系統</h1>
+        
+        <div class="flex flex-col md:flex-row gap-4 mb-6">
+            <div class="w-full md:w-1/3">
+                <label class="block text-gray-700 mb-2" for="startDate">起始日期:</label>
+                <input type="date" id="startDate" class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+            </div>
+            <div class="w-full md:w-1/3">
+                <label class="block text-gray-700 mb-2" for="endDate">結束日期:</label>
+                <input type="date" id="endDate" class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+            </div>
+            <div class="w-full md:w-1/3 flex items-end">
+                <button id="fetchButton" class="w-full bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition duration-300">
+                    <i class="fas fa-download mr-2"></i>獲取資料
+                </button>
+            </div>
+        </div>
+        
+        <div id="loadingIndicator" class="hidden text-center py-4">
+            <div class="inline-block animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500"></div>
+            <p class="mt-2">載入中...</p>
+        </div>
+        
+        <div id="resultInfo" class="hidden mb-4 p-4 bg-gray-50 rounded-lg">
+            <p id="recordCount" class="text-lg font-semibold"></p>
+        </div>
+        
+        <div id="resultContainer" class="overflow-x-auto">
+            <table id="resultTable" class="hidden min-w-full bg-white border border-gray-200">
+                <thead class="bg-gray-100">
+                    <!-- Table headers will be added dynamically -->
                 </thead>
-            <tbody>
+                <tbody>
+                    <!-- Table data will be added dynamically -->
                 </tbody>
-        </table>
+            </table>
+        </div>
+        
+        <div id="errorMessage" class="hidden text-center py-4 text-red-500">
+        </div>
     </div>
-    <div id="messageArea"></div>
 
     <script>
-        document.getElementById('fetchDataButton').addEventListener('click', fetchData);
-
-        // 設定預設日期 (可選)
-        functionsetDefaultDates() {
+        document.addEventListener('DOMContentLoaded', function() {
+            const startDateInput = document.getElementById('startDate');
+            const endDateInput = document.getElementById('endDate');
+            const fetchButton = document.getElementById('fetchButton');
+            const loadingIndicator = document.getElementById('loadingIndicator');
+            const resultTable = document.getElementById('resultTable');
+            const resultInfo = document.getElementById('resultInfo');
+            const recordCount = document.getElementById('recordCount');
+            const errorMessage = document.getElementById('errorMessage');
+            
+            // Set default dates
             const today = new Date();
-            const defaultStartDate = new Date(today);
-            // 預設起始日為今天往前推一個月，或根據您的需求調整
-            defaultStartDate.setMonth(today.getMonth() - 1);
-
-            // 格式化為 YYYY-MM-DD
-            const formatDate = (date) => {
+            const defaultStartDate = new Date(2024, 9, 1); // 2024-10-01
+            const defaultEndDate = new Date(2025, 11, 31); // 2025-12-31
+            
+            startDateInput.valueAsDate = defaultStartDate;
+            endDateInput.valueAsDate = defaultEndDate;
+            
+            fetchButton.addEventListener('click', function() {
+                fetchData();
+            });
+            
+            function fetchData() {
+                const startDate = startDateInput.value;
+                const endDate = endDateInput.value;
+                
+                // Validate dates
+                if (!startDate || !endDate) {
+                    showError('請選擇起始日期和結束日期');
+                    return;
+                }
+                
+                if (new Date(startDate) > new Date(endDate)) {
+                    showError('起始日期不能晚於結束日期');
+                    return;
+                }
+                
+                // Format dates in YYYY-MM-DD format
+                const formattedStartDate = formatDate(startDate);
+                const formattedEndDate = formatDate(endDate);
+                
+                const apiUrl = `https://cmm.ai:9999/export_records?start_date=${formattedStartDate}&end_date=${formattedEndDate}`;
+                
+                // Show loading indicator
+                loadingIndicator.classList.remove('hidden');
+                resultTable.classList.add('hidden');
+                resultInfo.classList.add('hidden');
+                errorMessage.classList.add('hidden');
+                
+                // Fetch data from API
+                fetch(apiUrl)
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error(`HTTP error! Status: ${response.status}`);
+                        }
+                        return response.json();
+                    })
+                    .then(data => {
+                        displayData(data);
+                    })
+                    .catch(error => {
+                        console.error('Error fetching data:', error);
+                        showError(`獲取資料時發生錯誤: ${error.message}`);
+                    })
+                    .finally(() => {
+                        loadingIndicator.classList.add('hidden');
+                    });
+            }
+            
+            function formatDate(dateString) {
+                const date = new Date(dateString);
                 const year = date.getFullYear();
-                const month = ('0' + (date.getMonth() + 1)).slice(-2);
-                const day = ('0' + date.getDate()).slice(-2);
+                const month = String(date.getMonth() + 1).padStart(2, '0');
+                const day = String(date.getDate()).padStart(2, '0');
                 return `${year}-${month}-${day}`;
             }
-
-            document.getElementById('startDate').value = formatDate(defaultStartDate);
-            document.getElementById('endDate').value = formatDate(today);
-        }
-
-        window.onload = setDefaultDates; // 頁面載入時設定預設日期
-
-        async function fetchData() {
-            const startDate = document.getElementById('startDate').value;
-            const endDate = document.getElementById('endDate').value;
-            const recordCountDiv = document.getElementById('recordCount');
-            const dataTableBody = document.getElementById('dataTable').getElementsByTagName('tbody')[0];
-            const dataTableHeader = document.getElementById('dataTable').getElementsByTagName('thead')[0];
-            const messageArea = document.getElementById('messageArea');
-
-            // 清空之前的資料和訊息
-            recordCountDiv.textContent = '';
-            dataTableBody.innerHTML = '';
-            dataTableHeader.innerHTML = '';
-            messageArea.innerHTML = '';
-
-            if (!startDate || !endDate) {
-                messageArea.innerHTML = '<div class="error-message">請選擇起始日和結束日。</div>';
-                return;
-            }
-
-            if (new Date(startDate) > new Date(endDate)) {
-                messageArea.innerHTML = '<div class="error-message">起始日不能晚於結束日。</div>';
-                return;
-            }
-
-            const apiUrl = `https://cmm.ai:9999/export_records?start_date=${startDate}&end_date=${endDate}`;
-
-            // 顯示載入訊息
-            messageArea.innerHTML = '<div class="loading-message">正在載入資料，請稍候...</div>';
-
-            try {
-                // 注意：由於瀏覽器的同源政策 (Same-Origin Policy)，
-                // 如果這個 HTML 檔案不是部署在 cmm.ai 網域下，
-                // 直接使用 fetch API 呼叫 https://cmm.ai:9999/... 可能會遇到 CORS (Cross-Origin Resource Sharing) 錯誤。
-                // 伺服器 cmm.ai:9999 需要設定適當的 CORS 標頭 (例如 Access-Control-Allow-Origin) 來允許跨域請求。
-                // 如果您無法控制伺服器端，這個前端直接呼叫可能會失敗。
-                //
-                // 假設 API 支援 CORS 或您在同網域下執行：
-                const response = await fetch(apiUrl);
-
-                if (!response.ok) {
-                    // 如果伺服器回傳錯誤狀態 (例如 404, 500)
-                    throw new Error(`伺服器錯誤： ${response.status} ${response.statusText}`);
+            
+            function displayData(data) {
+                if (!Array.isArray(data) || data.length === 0) {
+                    showError('沒有找到資料');
+                    return;
                 }
-
-                const data = await response.json(); // 假設 API 回傳的是 JSON 格式
-
-                // 清除載入訊息
-                messageArea.innerHTML = '';
-
-                if (Array.isArray(data) && data.length > 0) {
-                    recordCountDiv.textContent = `共計 ${data.length} 列`;
-
-                    // 動態生成表頭
-                    const headers = Object.keys(data[0]);
-                    let headerRow = '<tr>';
-                    headers.forEach(header => {
-                        headerRow += `<th>${header}</th>`;
+                
+                // Clear previous results
+                const thead = resultTable.querySelector('thead');
+                const tbody = resultTable.querySelector('tbody');
+                thead.innerHTML = '';
+                tbody.innerHTML = '';
+                
+                // Create table headers
+                const headerRow = document.createElement('tr');
+                const keys = Object.keys(data[0]);
+                
+                keys.forEach(key => {
+                    const th = document.createElement('th');
+                    th.className = 'px-4 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-sm font-semibold text-gray-700';
+                    th.textContent = key;
+                    headerRow.appendChild(th);
+                });
+                
+                thead.appendChild(headerRow);
+                
+                // Create table rows
+                data.forEach((item, index) => {
+                    const row = document.createElement('tr');
+                    row.className = index % 2 === 0 ? 'bg-white' : 'bg-gray-50';
+                    
+                    keys.forEach(key => {
+                        const td = document.createElement('td');
+                        td.className = 'px-4 py-3 border-b border-gray-200 text-sm';
+                        td.textContent = item[key] !== undefined ? item[key] : '';
+                        row.appendChild(td);
                     });
-                    headerRow += '</tr>';
-                    dataTableHeader.innerHTML = headerRow;
-
-                    // 填充資料列表
-                    data.forEach(record => {
-                        let row = '<tr>';
-                        headers.forEach(header => {
-                            // 對於 null 或 undefined 的值，顯示空字串
-                            const value = record[header] === null || record[header] === undefined ? '' : record[header];
-                            row += `<td>${value}</td>`;
-                        });
-                        row += '</tr>';
-                        dataTableBody.innerHTML += row;
-                    });
-                } else if (Array.isArray(data) && data.length === 0) {
-                    recordCountDiv.textContent = '共計 0 列';
-                    messageArea.innerHTML = '<div class="loading-message">在選定的日期範圍內沒有找到資料。</div>';
-                } else {
-                     // 如果回傳的不是陣列或格式不符預期
-                    recordCountDiv.textContent = '資料格式錯誤或無資料';
-                    console.error("API回傳的資料格式不符預期:", data);
-                    messageArea.innerHTML = '<div class="error-message">無法解析回傳的資料。請檢查API的回應。</div>';
-                }
-
-            } catch (error) {
-                console.error('抓取資料失敗:', error);
-                recordCountDiv.textContent = '';
-                // 清除可能存在的載入訊息，並顯示錯誤
-                messageArea.innerHTML = `<div class="error-message">抓取資料失敗：${error.message}。<br>請檢查網路連線，或確認 API 端點 (https://cmm.ai:9999) 是否可正常存取及已設定 CORS 策略。</div>`;
+                    tbody.appendChild(row);
+                });
+                
+                // Show table and update record count
+                resultTable.classList.remove('hidden');
+                resultInfo.classList.remove('hidden');
+                recordCount.textContent = `共計 ${data.length} 筆資料`;
             }
-        }
+            
+            function showError(message) {
+                errorMessage.textContent = message;
+                errorMessage.classList.remove('hidden');
+                resultTable.classList.add('hidden');
+                resultInfo.classList.add('hidden');
+            }
+            
+            // Optional: Automatically fetch data on page load
+            // fetchData();
+        });
     </script>
-
 </body>
 </html>
