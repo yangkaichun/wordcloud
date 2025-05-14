@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>資料匯出系統</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <style>
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(0, 0, 0, 0.3);
+            border-radius: 50%;
+            border-top-color: #000;
+            animation: spin 1s ease-in-out infinite;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        table {
+            border-collapse: collapse;
+            width: 100%;
+        }
+        
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+        
+        th {
+            background-color: #f2f2f2;
+            position: sticky;
+            top: 0;
+        }
+        
+        .table-container {
+            max-height: 500px;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen p-4">
+    <div class="container mx-auto bg-white shadow-lg rounded-lg p-6 max-w-5xl">
+        <h1 class="text-2xl font-bold text-center mb-6">資料匯出系統</h1>
+        
+        <div class="flex flex-col md:flex-row items-center justify-between gap-4 mb-8">
+            <div class="w-full md:w-auto">
+                <label for="start-date" class="block text-sm font-medium text-gray-700 mb-1">起始日期：</label>
+                <input type="date" id="start-date" class="px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500" value="2024-10-01">
+            </div>
+            
+            <div class="w-full md:w-auto">
+                <label for="end-date" class="block text-sm font-medium text-gray-700 mb-1">結束日期：</label>
+                <input type="date" id="end-date" class="px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500" value="2025-12-31">
+            </div>
+            
+            <div class="w-full md:w-auto md:self-end">
+                <button id="fetch-btn" class="w-full md:w-auto bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-6 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors">
+                    獲取資料
+                </button>
+            </div>
+        </div>
+        
+        <div id="status-container" class="mb-4 hidden">
+            <div id="loading" class="flex items-center text-gray-600">
+                <div class="loading mr-3"></div>
+                <span>正在獲取資料，請稍候...</span>
+            </div>
+            <div id="error" class="hidden bg-red-100 border-l-4 border-red-500 text-red-700 p-4" role="alert">
+                <p id="error-message"></p>
+            </div>
+        </div>
+        
+        <div id="result-container" class="hidden">
+            <div class="flex justify-between items-center mb-3">
+                <h2 class="text-lg font-semibold">查詢結果</h2>
+                <p id="record-count" class="text-gray-600"></p>
+            </div>
+            
+            <div class="table-container border border-gray-200 rounded-lg shadow">
+                <table id="data-table" class="min-w-full">
+                    <thead id="table-header">
+                        <!-- Headers will be generated dynamically -->
+                    </thead>
+                    <tbody id="table-body">
+                        <!-- Data rows will be generated dynamically -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Set default dates
+            const today = new Date();
+            const startDateInput = document.getElementById('start-date');
+            const endDateInput = document.getElementById('end-date');
+            
+            if (!startDateInput.value) {
+                startDateInput.value = '2024-10-01';
+            }
+            
+            if (!endDateInput.value) {
+                // Default end date to 2025-12-31
+                endDateInput.value = '2025-12-31';
+            }
+            
+            // Fetch button event listener
+            document.getElementById('fetch-btn').addEventListener('click', fetchData);
+            
+            // Fetch data function
+            function fetchData() {
+                const startDate = document.getElementById('start-date').value;
+                const endDate = document.getElementById('end-date').value;
+                
+                // Validate dates
+                if (!startDate || !endDate) {
+                    showError('請選擇起始日期和結束日期');
+                    return;
+                }
+                
+                if (new Date(startDate) > new Date(endDate)) {
+                    showError('起始日期不能晚於結束日期');
+                    return;
+                }
+                
+                // Construct API URL
+                const apiUrl = `https://cmm.ai:9999/export_records?start_date=${startDate}&end_date=${endDate}`;
+                
+                // Show loading
+                document.getElementById('status-container').classList.remove('hidden');
+                document.getElementById('loading').classList.remove('hidden');
+                document.getElementById('error').classList.add('hidden');
+                document.getElementById('result-container').classList.add('hidden');
+                
+                // Fetch data from API
+                fetch(apiUrl)
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error(`HTTP error! Status: ${response.status}`);
+                        }
+                        return response.json();
+                    })
+                    .then(data => {
+                        displayData(data);
+                    })
+                    .catch(error => {
+                        console.error('Fetch error:', error);
+                        showError(`獲取資料時發生錯誤: ${error.message}`);
+                        
+                        // If CORS is the issue, provide more helpful message
+                        if (error.message.includes('CORS') || error.message.includes('blocked') || error.message.includes('access')) {
+                            showError('獲取資料時發生跨域請求錯誤 (CORS)。這可能是因為API伺服器未設置允許跨域訪問，或者API需要認證。請聯繫系統管理員處理此問題。');
+                        }
+                    })
+                    .finally(() => {
+                        document.getElementById('loading').classList.add('hidden');
+                    });
+            }
+            
+            function displayData(data) {
+                if (!Array.isArray(data) || data.length === 0) {
+                    showError('沒有找到符合條件的資料');
+                    return;
+                }
+                
+                const resultContainer = document.getElementById('result-container');
+                const tableHeader = document.getElementById('table-header');
+                const tableBody = document.getElementById('table-body');
+                const recordCount = document.getElementById('record-count');
+                
+                // Clear previous data
+                tableHeader.innerHTML = '';
+                tableBody.innerHTML = '';
+                
+                // Create header row
+                const headerRow = document.createElement('tr');
+                const headers = Object.keys(data[0]);
+                
+                headers.forEach(header => {
+                    const th = document.createElement('th');
+                    th.textContent = header;
+                    headerRow.appendChild(th);
+                });
+                
+                tableHeader.appendChild(headerRow);
+                
+                // Create data rows
+                data.forEach(item => {
+                    const row = document.createElement('tr');
+                    
+                    headers.forEach(header => {
+                        const td = document.createElement('td');
+                        td.textContent = item[header] !== null && item[header] !== undefined ? item[header] : '';
+                        row.appendChild(td);
+                    });
+                    
+                    tableBody.appendChild(row);
+                });
+                
+                // Update record count
+                recordCount.textContent = `共計 ${data.length} 筆資料`;
+                
+                // Show result
+                resultContainer.classList.remove('hidden');
+            }
+            
+            function showError(message) {
+                const errorContainer = document.getElementById('error');
+                const errorMessage = document.getElementById('error-message');
+                
+                errorMessage.textContent = message;
+                errorContainer.classList.remove('hidden');
+                document.getElementById('status-container').classList.remove('hidden');
+                document.getElementById('result-container').classList.add('hidden');
+            }
+        });
+    </script>
+</body>
+</html>
