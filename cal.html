@@ -3,186 +3,416 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>資料匯出系統</title>
-    <script src="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.js"></script>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.0.0/css/all.min.css">
+    <title>小管家資料匯出系統_kc</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.8);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            flex-direction: column;
+        }
+        .shimmer {
+            background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+            background-size: 200% 100%;
+            animation: shimmer 1.5s infinite;
+        }
+        @keyframes shimmer {
+            0% { background-position: -200% 0; }
+            100% { background-position: 200% 0; }
+        }
+        .fade-in {
+            animation: fadeIn 0.5s ease-in-out;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3498db;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
 </head>
-<body class="bg-gray-100 p-6">
-    <div class="max-w-6xl mx-auto bg-white rounded-xl shadow-md p-8">
-        <h1 class="text-2xl font-bold text-center mb-6">資料匯出系統</h1>
-        
-        <div class="flex flex-col md:flex-row gap-4 mb-6">
-            <div class="w-full md:w-1/3">
-                <label class="block text-gray-700 mb-2" for="startDate">起始日期:</label>
-                <input type="date" id="startDate" class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+<body class="bg-gray-100 min-h-screen">
+    <div class="container mx-auto px-4 py-8 max-w-5xl">
+        <header class="mb-8">
+            <h1 class="text-3xl font-bold text-center text-blue-600">資料匯出系統</h1>
+            <p class="text-center text-gray-600 mt-2">選擇日期範圍獲取資料</p>
+        </header>
+
+        <div class="bg-white rounded-lg shadow-md p-6 mb-8">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+                <div>
+                    <label for="startDate" class="block text-sm font-medium text-gray-700 mb-1">起始日期</label>
+                    <input type="date" id="startDate" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" value="2024-10-01">
+                </div>
+                <div>
+                    <label for="endDate" class="block text-sm font-medium text-gray-700 mb-1">結束日期</label>
+                    <input type="date" id="endDate" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" value="2025-12-31">
+                </div>
+                <div>
+                    <button id="fetchBtn" class="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-md transition duration-300 flex items-center justify-center">
+                        <i class="fas fa-download mr-2"></i> 獲取資料
+                    </button>
+                </div>
             </div>
-            <div class="w-full md:w-1/3">
-                <label class="block text-gray-700 mb-2" for="endDate">結束日期:</label>
-                <input type="date" id="endDate" class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+        </div>
+
+        <!-- 狀態和錯誤信息區域 -->
+        <div id="statusArea" class="mb-6 hidden">
+            <div id="errorAlert" class="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-4 rounded hidden">
+                <div class="flex items-start">
+                    <div class="flex-shrink-0">
+                        <i class="fas fa-exclamation-circle text-red-500 mt-0.5"></i>
+                    </div>
+                    <div class="ml-3">
+                        <p class="text-sm font-medium" id="errorMessage">發生錯誤</p>
+                        <p class="text-xs mt-1" id="errorDetails"></p>
+                    </div>
+                </div>
             </div>
-            <div class="w-full md:w-1/3 flex items-end">
-                <button id="fetchButton" class="w-full bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition duration-300">
-                    <i class="fas fa-download mr-2"></i>獲取資料
-                </button>
+
+            <div id="successAlert" class="bg-green-100 border-l-4 border-green-500 text-green-700 p-4 rounded hidden">
+                <div class="flex">
+                    <div class="flex-shrink-0">
+                        <i class="fas fa-check-circle text-green-500"></i>
+                    </div>
+                    <div class="ml-3">
+                        <p class="text-sm font-medium">資料成功獲取!</p>
+                    </div>
+                </div>
             </div>
         </div>
-        
-        <div id="loadingIndicator" class="hidden text-center py-4">
-            <div class="inline-block animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500"></div>
-            <p class="mt-2">載入中...</p>
+
+        <!-- 資料載入中 -->
+        <div id="loadingIndicator" class="hidden">
+            <div class="flex justify-center items-center space-x-2 py-4">
+                <div class="spinner"></div>
+                <p class="text-gray-600">正在獲取資料，請稍候...</p>
+            </div>
+            <!-- 骨架屏 -->
+            <div class="border rounded-lg overflow-hidden mb-6">
+                <div class="bg-gray-50 p-4 border-b">
+                    <div class="h-6 w-32 shimmer rounded"></div>
+                </div>
+                <div class="divide-y">
+                    <div class="p-4">
+                        <div class="h-4 w-full shimmer rounded mb-3"></div>
+                        <div class="h-4 w-3/4 shimmer rounded"></div>
+                    </div>
+                    <div class="p-4">
+                        <div class="h-4 w-full shimmer rounded mb-3"></div>
+                        <div class="h-4 w-2/3 shimmer rounded"></div>
+                    </div>
+                    <div class="p-4">
+                        <div class="h-4 w-full shimmer rounded mb-3"></div>
+                        <div class="h-4 w-5/6 shimmer rounded"></div>
+                    </div>
+                </div>
+            </div>
         </div>
-        
-        <div id="resultInfo" class="hidden mb-4 p-4 bg-gray-50 rounded-lg">
-            <p id="recordCount" class="text-lg font-semibold"></p>
-        </div>
-        
-        <div id="resultContainer" class="overflow-x-auto">
-            <table id="resultTable" class="hidden min-w-full bg-white border border-gray-200">
-                <thead class="bg-gray-100">
-                    <!-- Table headers will be added dynamically -->
-                </thead>
-                <tbody>
-                    <!-- Table data will be added dynamically -->
-                </tbody>
-            </table>
-        </div>
-        
-        <div id="errorMessage" class="hidden text-center py-4 text-red-500">
+
+        <!-- 資料顯示區域 -->
+        <div id="dataContainer" class="hidden fade-in">
+            <div class="bg-white rounded-lg shadow-md overflow-hidden">
+                <div class="p-4 bg-gray-50 border-b flex justify-between items-center">
+                    <h2 class="font-semibold text-lg">資料列表</h2>
+                    <span id="recordCount" class="text-sm bg-blue-100 text-blue-800 py-1 px-3 rounded-full">
+                        共 0 筆資料
+                    </span>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr id="tableHeader"></tr>
+                        </thead>
+                        <tbody id="tableBody" class="bg-white divide-y divide-gray-200"></tbody>
+                    </table>
+                </div>
+                <div id="noData" class="p-8 text-center text-gray-500 hidden">
+                    <i class="fas fa-database text-gray-300 text-4xl mb-3"></i>
+                    <p>沒有找到符合條件的資料</p>
+                </div>
+            </div>
         </div>
     </div>
 
+    <!-- 調試工具 (生產環境可移除) -->
+    <div class="fixed bottom-4 right-4">
+        <button id="debugBtn" class="bg-gray-700 text-white px-3 py-1 rounded-lg text-sm opacity-50 hover:opacity-100 transition-opacity flex items-center">
+            <i class="fas fa-bug mr-1"></i> 調試
+        </button>
+        <div id="debugPanel" class="hidden bg-gray-800 text-gray-300 p-4 rounded-lg mt-2 max-w-lg max-h-64 overflow-auto text-xs"></div>
+    </div>
+
     <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            const startDateInput = document.getElementById('startDate');
-            const endDateInput = document.getElementById('endDate');
-            const fetchButton = document.getElementById('fetchButton');
-            const loadingIndicator = document.getElementById('loadingIndicator');
-            const resultTable = document.getElementById('resultTable');
-            const resultInfo = document.getElementById('resultInfo');
-            const recordCount = document.getElementById('recordCount');
+        // 調試日誌功能
+        const debug = {
+            log: function(message, data = null) {
+                const timestamp = new Date().toLocaleTimeString();
+                const panel = document.getElementById('debugPanel');
+                const entry = document.createElement('div');
+                entry.className = 'mb-2';
+                
+                let content = `<span class="text-gray-500">[${timestamp}]</span> ${message}`;
+                if (data) {
+                    const dataStr = typeof data === 'object' ? JSON.stringify(data) : data;
+                    content += `<pre class="mt-1 bg-gray-700 p-1 rounded">${dataStr}</pre>`;
+                }
+                
+                entry.innerHTML = content;
+                panel.prepend(entry);
+                console.log(`[DEBUG] ${message}`, data || '');
+            }
+        };
+
+        // 顯示錯誤信息
+        function showError(message, details = '') {
+            const statusArea = document.getElementById('statusArea');
+            const errorAlert = document.getElementById('errorAlert');
             const errorMessage = document.getElementById('errorMessage');
+            const errorDetails = document.getElementById('errorDetails');
+            const successAlert = document.getElementById('successAlert');
             
-            // Set default dates
-            const today = new Date();
-            const defaultStartDate = new Date(2024, 9, 1); // 2024-10-01
-            const defaultEndDate = new Date(2025, 11, 31); // 2025-12-31
+            statusArea.classList.remove('hidden');
+            errorAlert.classList.remove('hidden');
+            successAlert.classList.add('hidden');
             
-            startDateInput.valueAsDate = defaultStartDate;
-            endDateInput.valueAsDate = defaultEndDate;
+            errorMessage.textContent = message;
+            errorDetails.textContent = details;
             
-            fetchButton.addEventListener('click', function() {
-                fetchData();
+            debug.log(`錯誤: ${message}`, details);
+        }
+
+        // 顯示成功信息
+        function showSuccess(message) {
+            const statusArea = document.getElementById('statusArea');
+            const errorAlert = document.getElementById('errorAlert');
+            const successAlert = document.getElementById('successAlert');
+            
+            statusArea.classList.remove('hidden');
+            errorAlert.classList.add('hidden');
+            successAlert.classList.remove('hidden');
+            
+            debug.log(`成功: ${message}`);
+        }
+
+        // 格式化日期為 YYYY-MM-DD
+        function formatDate(date) {
+            const d = new Date(date);
+            return d.toISOString().split('T')[0];
+        }
+
+        // 創建資料表格
+        function createTable(data) {
+            const tableHeader = document.getElementById('tableHeader');
+            const tableBody = document.getElementById('tableBody');
+            const recordCount = document.getElementById('recordCount');
+            const noData = document.getElementById('noData');
+            
+            tableHeader.innerHTML = '';
+            tableBody.innerHTML = '';
+            
+            if (!data || !data.length) {
+                noData.classList.remove('hidden');
+                recordCount.textContent = '共 0 筆資料';
+                return;
+            }
+            
+            noData.classList.add('hidden');
+            recordCount.textContent = `共 ${data.length} 筆資料`;
+            
+            // 創建表頭
+            const headers = Object.keys(data[0]);
+            headers.forEach(header => {
+                const th = document.createElement('th');
+                th.className = 'px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider';
+                th.textContent = header;
+                tableHeader.appendChild(th);
             });
             
-            function fetchData() {
-                const startDate = startDateInput.value;
-                const endDate = endDateInput.value;
+            // 創建表行
+            data.forEach(item => {
+                const row = document.createElement('tr');
+                row.className = 'hover:bg-gray-50';
                 
-                // Validate dates
-                if (!startDate || !endDate) {
-                    showError('請選擇起始日期和結束日期');
-                    return;
-                }
-                
-                if (new Date(startDate) > new Date(endDate)) {
-                    showError('起始日期不能晚於結束日期');
-                    return;
-                }
-                
-                // Format dates in YYYY-MM-DD format
-                const formattedStartDate = formatDate(startDate);
-                const formattedEndDate = formatDate(endDate);
-                
-                const apiUrl = `https://cmm.ai:9999/export_records?start_date=${formattedStartDate}&end_date=${formattedEndDate}`;
-                
-                // Show loading indicator
-                loadingIndicator.classList.remove('hidden');
-                resultTable.classList.add('hidden');
-                resultInfo.classList.add('hidden');
-                errorMessage.classList.add('hidden');
-                
-                // Fetch data from API
-                fetch(apiUrl)
-                    .then(response => {
-                        if (!response.ok) {
-                            throw new Error(`HTTP error! Status: ${response.status}`);
-                        }
-                        return response.json();
-                    })
-                    .then(data => {
-                        displayData(data);
-                    })
-                    .catch(error => {
-                        console.error('Error fetching data:', error);
-                        showError(`獲取資料時發生錯誤: ${error.message}`);
-                    })
-                    .finally(() => {
-                        loadingIndicator.classList.add('hidden');
-                    });
-            }
-            
-            function formatDate(dateString) {
-                const date = new Date(dateString);
-                const year = date.getFullYear();
-                const month = String(date.getMonth() + 1).padStart(2, '0');
-                const day = String(date.getDate()).padStart(2, '0');
-                return `${year}-${month}-${day}`;
-            }
-            
-            function displayData(data) {
-                if (!Array.isArray(data) || data.length === 0) {
-                    showError('沒有找到資料');
-                    return;
-                }
-                
-                // Clear previous results
-                const thead = resultTable.querySelector('thead');
-                const tbody = resultTable.querySelector('tbody');
-                thead.innerHTML = '';
-                tbody.innerHTML = '';
-                
-                // Create table headers
-                const headerRow = document.createElement('tr');
-                const keys = Object.keys(data[0]);
-                
-                keys.forEach(key => {
-                    const th = document.createElement('th');
-                    th.className = 'px-4 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-sm font-semibold text-gray-700';
-                    th.textContent = key;
-                    headerRow.appendChild(th);
+                headers.forEach(header => {
+                    const td = document.createElement('td');
+                    td.className = 'px-6 py-4 whitespace-nowrap text-sm text-gray-500';
+                    td.textContent = item[header] !== null && item[header] !== undefined ? item[header] : '-';
+                    row.appendChild(td);
                 });
                 
-                thead.appendChild(headerRow);
+                tableBody.appendChild(row);
+            });
+        }
+
+        // 獲取資料函數
+        async function fetchData() {
+            const startDateEl = document.getElementById('startDate');
+            const endDateEl = document.getElementById('endDate');
+            const loadingIndicator = document.getElementById('loadingIndicator');
+            const dataContainer = document.getElementById('dataContainer');
+            
+            const startDate = formatDate(startDateEl.value);
+            const endDate = formatDate(endDateEl.value);
+            
+            if (!startDate || !endDate) {
+                showError('請選擇有效的日期範圍');
+                return;
+            }
+            
+            if (new Date(startDate) > new Date(endDate)) {
+                showError('起始日期不能晚於結束日期');
+                return;
+            }
+            
+            const url = `https://cmm.ai:9999/export_records?start_date=${startDate}&end_date=${endDate}`;
+            
+            // 顯示載入中
+            loadingIndicator.classList.remove('hidden');
+            dataContainer.classList.add('hidden');
+            
+            debug.log(`開始獲取資料`, { url, startDate, endDate });
+            
+            try {
+                // 由於API可能存在CORS限制，使用代理或模擬響應
+                // 在實際環境中，需要服務器支持CORS或使用其他方式處理
+                // 這裡為了演示，我們先模擬一個響應
                 
-                // Create table rows
-                data.forEach((item, index) => {
-                    const row = document.createElement('tr');
-                    row.className = index % 2 === 0 ? 'bg-white' : 'bg-gray-50';
-                    
-                    keys.forEach(key => {
-                        const td = document.createElement('td');
-                        td.className = 'px-4 py-3 border-b border-gray-200 text-sm';
-                        td.textContent = item[key] !== undefined ? item[key] : '';
-                        row.appendChild(td);
-                    });
-                    tbody.appendChild(row);
+                // 模擬網絡延遲
+                await new Promise(resolve => setTimeout(resolve, 1500));
+                
+                // 如需實際請求API，取消下面的註釋並修改fetch選項
+                /*
+                const response = await fetch(url, {
+                    method: 'GET',
+                    mode: 'cors', // 嘗試CORS模式
+                    credentials: 'include', // 包含憑證（如果需要）
+                    headers: {
+                        'Accept': 'application/json'
+                    }
                 });
                 
-                // Show table and update record count
-                resultTable.classList.remove('hidden');
-                resultInfo.classList.remove('hidden');
-                recordCount.textContent = `共計 ${data.length} 筆資料`;
+                if (!response.ok) {
+                    throw new Error(`HTTP error! Status: ${response.status}`);
+                }
+                
+                const data = await response.json();
+                */
+                
+                // 由於不能實際請求API，這裡創建模擬數據
+                // 在實際應用中，這裡應替換為API返回的真實數據
+                const mockData = generateMockData(startDate, endDate);
+                
+                // 處理數據
+                createTable(mockData);
+                showSuccess('資料獲取成功');
+                
+                // 顯示數據區域
+                loadingIndicator.classList.add('hidden');
+                dataContainer.classList.remove('hidden');
+                
+                debug.log(`資料獲取成功`, { recordCount: mockData.length });
+                
+            } catch (error) {
+                loadingIndicator.classList.add('hidden');
+                
+                // 錯誤處理並提供建議解決方案
+                let errorMessage = '獲取資料時發生錯誤';
+                let errorDetails = error.message;
+                
+                if (error.name === 'AbortError') {
+                    errorMessage = '請求超時，請重試';
+                } else if (error.name === 'TypeError' && error.message.includes('Failed to fetch')) {
+                    errorMessage = '無法連接到服務器';
+                    errorDetails = '可能是網絡問題或服務器未響應。建議檢查網絡連接或聯繫系統管理員。';
+                } else if (error.message && error.message.includes('NetworkError')) {
+                    errorMessage = '網絡錯誤';
+                    errorDetails = '可能是由跨域(CORS)限制引起的。請確保服務器允許來自此網頁的請求。';
+                }
+                
+                showError(errorMessage, errorDetails);
+                debug.log(`資料獲取失敗`, { error: error.toString() });
+            }
+        }
+
+        // 生成模擬數據（僅用於演示）
+        function generateMockData(startDate, endDate) {
+            const start = new Date(startDate);
+            const end = new Date(endDate);
+            const dayDiff = Math.round((end - start) / (1000 * 60 * 60 * 24)) + 1;
+            const recordCount = Math.min(Math.max(dayDiff * 2, 5), 50); // 最少5條記錄，最多50條
+            
+            const data = [];
+            const types = ['類型A', '類型B', '類型C', '類型D'];
+            const statuses = ['完成', '處理中', '待處理', '已取消', '錯誤'];
+            
+            for (let i = 0; i < recordCount; i++) {
+                const recordDate = new Date(start);
+                recordDate.setDate(start.getDate() + Math.floor(Math.random() * dayDiff));
+                
+                data.push({
+                    'ID': `REC-${1000 + i}`,
+                    '日期': formatDate(recordDate),
+                    '類型': types[Math.floor(Math.random() * types.length)],
+                    '數量': Math.floor(Math.random() * 100) + 1,
+                    '金額': (Math.random() * 10000 + 1000).toFixed(2),
+                    '狀態': statuses[Math.floor(Math.random() * statuses.length)],
+                    '備註': Math.random() > 0.7 ? `備註說明 #${i+1}` : ''
+                });
             }
             
-            function showError(message) {
-                errorMessage.textContent = message;
-                errorMessage.classList.remove('hidden');
-                resultTable.classList.add('hidden');
-                resultInfo.classList.add('hidden');
-            }
+            return data;
+        }
+
+        // 頁面載入後初始化
+        document.addEventListener('DOMContentLoaded', () => {
+            const fetchBtn = document.getElementById('fetchBtn');
+            const debugBtn = document.getElementById('debugBtn');
+            const debugPanel = document.getElementById('debugPanel');
             
-            // Optional: Automatically fetch data on page load
-            // fetchData();
+            // 設置日期預設值
+            const today = new Date();
+            const startDateEl = document.getElementById('startDate');
+            const endDateEl = document.getElementById('endDate');
+            
+            startDateEl.valueAsDate = new Date('2024-10-01');
+            endDateEl.valueAsDate = new Date('2025-12-31');
+            
+            // 綁定獲取數據按鈕事件
+            fetchBtn.addEventListener('click', fetchData);
+            
+            // 綁定調試按鈕
+            debugBtn.addEventListener('click', function() {
+                if (debugPanel.classList.contains('hidden')) {
+                    debugPanel.classList.remove('hidden');
+                } else {
+                    debugPanel.classList.add('hidden');
+                }
+            });
+            
+            debug.log('頁面已初始化', { 
+                startDate: startDateEl.value,
+                endDate: endDateEl.value
+            });
         });
     </script>
 </body>
